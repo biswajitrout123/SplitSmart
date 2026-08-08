@@ -66,3 +66,13 @@ Register
 - Group creation protected with authentication middleware
 - Tested authenticated group creation
 - Tested unauthenticated group creation
+
+### Groups
+
+- [x] Group model
+- [x] Create Group API
+- [x] Protected Group creation
+- [x] Get My Groups API
+- [x] Protected Group listing
+- [x] Tested authenticated request
+- [x] Tested unauthenticated request

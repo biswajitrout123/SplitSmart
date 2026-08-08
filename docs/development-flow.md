@@ -183,3 +183,50 @@ When the user is logged out, `POST /api/groups` returns:
     "success": false,
     "message": "Not authenticated"
 }
+
+
+## Group Listing Flow
+
+### Get My Groups
+
+Endpoint:
+
+GET /api/groups
+
+Authentication:
+
+Required
+
+Flow:
+
+1. User logs in.
+2. JWT is stored in an HTTP-only cookie.
+3. User requests `GET /api/groups`.
+4. `authMiddleware` reads the JWT cookie.
+5. JWT is verified.
+6. User is found from MongoDB.
+7. User is attached to `req.user`.
+8. `getMyGroups` searches for groups containing `req.user._id`.
+9. Groups are sorted by newest first.
+10. API returns the user's groups.
+
+Success Response:
+
+200 OK
+
+{
+    "success": true,
+    "count": 1,
+    "groups": []
+}
+
+Authentication Test:
+
+When the user is logged out:
+
+401 Unauthorized
+
+{
+    "success": false,
+    "message": "Not authenticated"
+}
