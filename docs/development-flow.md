@@ -127,3 +127,59 @@ After logout:
 
 GET /api/auth/me
 → 401 Not authenticated
+
+
+
+## Authentication & Group Creation
+
+### Authentication Flow
+
+1. User registers using `POST /api/auth/register`
+2. User logs in using `POST /api/auth/login`
+3. Server generates a JWT
+4. JWT is stored in an HTTP-only cookie
+5. Protected routes use `authMiddleware`
+6. Middleware verifies the JWT
+7. Middleware finds the user from MongoDB
+8. User is attached to `req.user`
+
+### Group Creation Flow
+
+Endpoint:
+
+POST /api/groups
+
+Authentication:
+
+Required
+
+Request body:
+
+{
+    "name": "Goa Trip",
+    "description": "Trip with college friends"
+}
+
+Flow:
+
+1. Request reaches `/api/groups`
+2. `authMiddleware` checks the JWT cookie
+3. Middleware verifies the token
+4. Middleware finds the logged-in user
+5. User is attached to `req.user`
+6. `createGroup` validates the group name
+7. Group is created in MongoDB
+8. Logged-in user becomes the group creator
+9. Logged-in user is automatically added to members
+10. API returns `201 Created`
+
+Security Test:
+
+When the user is logged out, `POST /api/groups` returns:
+
+401 Unauthorized
+
+{
+    "success": false,
+    "message": "Not authenticated"
+}

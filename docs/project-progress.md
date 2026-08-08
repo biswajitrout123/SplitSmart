@@ -44,3 +44,25 @@ Register
 → Logout
 → Cookie Removed
 → Protected Route Returns 401
+
+
+
+## Completed Features
+
+### Authentication
+- User registration
+- User login
+- JWT authentication
+- HTTP-only JWT cookie
+- Authentication middleware
+- Get current user
+- Logout
+
+### Groups
+- Group model created
+- Create group API
+- Group creator stored using `createdBy`
+- Creator automatically added to `members`
+- Group creation protected with authentication middleware
+- Tested authenticated group creation
+- Tested unauthenticated group creation
