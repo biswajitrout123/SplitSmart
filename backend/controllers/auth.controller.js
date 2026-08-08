@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 export const registerUser = async (req, res) => {
     try {
         const { name, email, password } = req.body;
-        
+
         // 1. Validate Data
         if (!name || !email || !password) {
             return res.status(400).json({
@@ -18,9 +18,9 @@ export const registerUser = async (req, res) => {
         // 2. Check if Email Exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Email is already registered' 
+            return res.status(400).json({
+                success: false,
+                message: 'Email is already registered'
             });
         }
 
@@ -58,22 +58,22 @@ export const registerUser = async (req, res) => {
 
 
 export const loginUser = async (req, res) => {
-    try{
-        const {email, password} = req.body;
+    try {
+        const { email, password } = req.body;
 
         // 1. Validate Data
         if (!email || !password) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Please provide both email and password' 
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide both email and password'
             });
         }
 
         // 2. Find User (and select the password field, which might be hidden by default in some setups)
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(401).json({ 
-                success: false, 
+            return res.status(401).json({
+                success: false,
                 message: 'Invalid credentials'
             });
         }
@@ -81,17 +81,17 @@ export const loginUser = async (req, res) => {
         // 3. Compare Password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ 
-                success: false, 
-                message: 'Invalid credentials' 
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid credentials'
             });
         }
 
         // 4. Generate JWT
         // You MUST have a JWT_SECRET in your .env file!
         const token = jwt.sign(
-            { id: user._id }, 
-            process.env.JWT_SECRET, 
+            { id: user._id },
+            process.env.JWT_SECRET,
             { expiresIn: '7d' } // Token lasts for 7 days
         );
 
@@ -115,11 +115,36 @@ export const loginUser = async (req, res) => {
             }
         });
 
-    } catch(err) {
-        console.log(err);        
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server error during login' 
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({
+            success: false,
+            message: 'Server error during login'
         });
     }
+}
+
+
+
+export const logoutUser = async (req, res) => {
+    try {
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV == "production",
+            sameSite: "strict"
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Logged out Successfully"
+        });
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+
 }

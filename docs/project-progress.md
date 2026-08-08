@@ -1,24 +1,46 @@
 # Project Progress
 
-## Completed
+## Authentication Module
 
-### Authentication
+Status: COMPLETED
 
+### Completed
+
+- [x] User Mongoose schema
 - [x] User registration
 - [x] Password hashing with bcrypt
 - [x] Duplicate email validation
 - [x] User login
+- [x] Password comparison
 - [x] JWT generation
 - [x] HTTP-only authentication cookie
-- [x] JWT authentication middleware
-- [x] Protected `/api/auth/me` route
-- [x] Current user retrieval
-- [x] Authentication tested with Postman
+- [x] Authentication middleware
+- [x] JWT verification
+- [x] Current user endpoint
+- [x] Logout endpoint
+- [x] Protected route testing with Postman
 
-### Authentication API
+### Tested APIs
 
-| Method | Endpoint | Status |
-|---|---|---|
-| POST | /api/auth/register | Completed |
-| POST | /api/auth/login | Completed |
-| GET | /api/auth/me | Completed |
+POST /api/auth/register
+- 201 Created
+
+POST /api/auth/login
+- 200 OK
+
+GET /api/auth/me
+- 200 OK when authenticated
+- 401 Unauthorized when not authenticated
+
+POST /api/auth/logout
+- 200 OK
+
+### Authentication Flow
+
+Register
+→ Login
+→ JWT Cookie
+→ Protected Route
+→ Logout
+→ Cookie Removed
+→ Protected Route Returns 401

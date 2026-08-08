@@ -111,3 +111,19 @@ Tested using Postman:
 - Get Current User → 200 OK
 - Duplicate email → 400 Bad Request
 - Invalid authentication → 401 Unauthorized
+
+### Logout User
+
+POST /api/auth/logout
+
+Flow:
+
+Request
+→ logoutUser controller
+→ Clear token cookie
+→ Return success response
+
+After logout:
+
+GET /api/auth/me
+→ 401 Not authenticated
