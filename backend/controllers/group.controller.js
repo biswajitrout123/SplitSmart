@@ -1,4 +1,5 @@
 import Group from "../models/group.model.js";
+import User from "../models/user.model.js"
 
 export const createGroup = async (req, res) => {
     try {
@@ -101,6 +102,83 @@ export const getGroupById = async (req, res) => {
     } catch (err) {
         console.log(err);
         res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
+
+
+export const addMember = async (req, res) => {
+    try{
+        const {groupId} = req.params;
+        const {userId} = req.body;
+
+        // 1. Validate user ID
+        if(!userId) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide a user ID"
+            });
+        }
+        // 2. Find group
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                message: "Group not found"
+            });
+        }
+
+        // 3. Check if requester is the group creator
+        if (group.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "Only the group creator can add members"
+            });
+        }
+
+        // 4. Find user to add
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // 5. Check if user is already a member
+        const alreadyMember = group.members.some(
+            (memberId) => memberId.toString() === userId.toString()
+        );
+
+        if (alreadyMember) {
+            return res.status(400).json({
+                success: false,
+                message: "User is already a member of this group"
+            });
+        }
+
+        // 6. Add user to group
+        group.members.push(userId);
+
+        // 7. Save group
+        await group.save();
+
+        // 8. Return success
+        return res.status(200).json({
+            success: true,
+            message: "Member added successfully",
+            group
+        });
+
+    } catch (err) {
+        console.log(err);
+
+        return res.status(500).json({
             success: false,
             message: "Internal Server Error"
         });
