@@ -59,3 +59,50 @@ export const getMyGroups = async (req, res) => {
         });
     }
 };
+
+
+
+
+export const getGroupById = async (req, res) => {
+    try {
+
+        // 1. Get group ID from URL 
+        const { groupId } = req.params;
+
+        // 2. Find group
+        const group = await Group.findById(groupId);
+
+        // 3. Check if group exists
+        if (!group) {
+            return res.status(404).json({
+                success: false,
+                message: "Group not found"
+            });
+        }
+
+        // 4. Check if logged-in user is a member
+        const isMember = group.members.some(
+            (memberId) => memberId.toString() == req.user._id.toString()
+        );
+        if (!isMember) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not a member of this group"
+            });
+        }
+        // 5. Return group
+        return res.status(200).json({
+            success: true,
+            group
+        });
+
+
+
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};

@@ -76,3 +76,13 @@ Register
 - [x] Protected Group listing
 - [x] Tested authenticated request
 - [x] Tested unauthenticated request
+
+- [x] Get Group by ID API
+- [x] Protected Group details
+- [x] Group membership authorization
+- [x] Tested authenticated group creation
+- [x] Tested unauthenticated group creation
+- [x] Tested authenticated group listing
+- [x] Tested unauthenticated group listing
+- [x] Tested group member access
+- [x] Tested non-member access

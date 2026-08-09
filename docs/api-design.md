@@ -55,3 +55,19 @@ The core ledger. It tracks who paid and how the cost is split using an embedded 
 Notes on Debt Simplification Algorithm
 
 The algorithm will query the Expense collection by groupId. It will iterate through all documents and their splits arrays to calculate a single net balance hash map (e.g., { UserA: +50, UserB: -20, UserC: -30 }) before applying the greedy settlement logic.
+
+## Groups API
+
+### Create Group
+
+POST `/api/groups`
+
+Authentication required.
+
+Request body:
+
+```json
+{
+    "name": "Goa Trip",
+    "description": "Trip with college friends"
+}
