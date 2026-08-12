@@ -1,9 +1,10 @@
 import Settlement from "../models/settlement.model.js";
 import Group from "../models/group.model.js";
+import AppError from "../utils/AppError.js";
 
 
 // CREATE SETTLEMENT
-export const createSettlement = async (req, res) => {
+export const createSettlement = async (req, res, next) => {
     try {
         // 1. Get group ID
         const { groupId } = req.params;
@@ -12,29 +13,26 @@ export const createSettlement = async (req, res) => {
         const { to, amount } = req.body;
 
         // 3. Validate data
-        if (!to || amount === undefined) {
-            return res.status(400).json({
-                success: false,
-                message: "Please provide receiver and amount"
-            });
+        if (!to || amount === undefined || amount === null) {
+            throw new AppError(
+                "Recipient and amount are required",
+                400
+            );
         }
 
         // 4. Validate amount
         if (amount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Amount must be greater than 0"
-            });
+            throw new AppError(
+                "Amount must be greater than 0",
+                400
+            );
         }
 
         // 5. Find group
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 6. Check logged-in user is a member
@@ -44,12 +42,11 @@ export const createSettlement = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
-
         // 7. Check receiver is also a group member
         const isReceiverMember = group.members.some(
             (memberId) =>
@@ -57,18 +54,18 @@ export const createSettlement = async (req, res) => {
         );
 
         if (!isReceiverMember) {
-            return res.status(400).json({
-                success: false,
-                message: "Receiver is not a member of this group"
-            });
+            throw new AppError(
+                "Receiver is not a member of this group",
+                400
+            );
         }
 
         // 8. Prevent settling with yourself
         if (req.user._id.toString() === to.toString()) {
-            return res.status(400).json({
-                success: false,
-                message: "You cannot settle with yourself"
-            });
+            throw new AppError(
+                "You cannot settle with yourself",
+                400
+            );
         }
 
         // 9. Create settlement
@@ -87,18 +84,13 @@ export const createSettlement = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 // GET ALL GROUP SETTLEMENTS
-export const getGroupSettlements = async (req, res) => {
+export const getGroupSettlements = async (req, res, next) => {
     try {
         const { groupId } = req.params;
 
@@ -106,12 +98,8 @@ export const getGroupSettlements = async (req, res) => {
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
-
         // 2. Check membership
         const isMember = group.members.some(
             (memberId) =>
@@ -119,12 +107,11 @@ export const getGroupSettlements = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
-
         // 3. Find settlements
         const settlements = await Settlement.find({
             group: groupId
@@ -141,19 +128,14 @@ export const getGroupSettlements = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 
 // DELETE SETTLEMENT
-export const deleteSettlement = async (req, res) => {
+export const deleteSettlement = async (req, res, next) => {
     try {
         const { groupId, settlementId } = req.params;
 
@@ -161,10 +143,7 @@ export const deleteSettlement = async (req, res) => {
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 2. Check membership
@@ -174,10 +153,10 @@ export const deleteSettlement = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
 
         // 3. Find settlement
@@ -187,12 +166,12 @@ export const deleteSettlement = async (req, res) => {
         });
 
         if (!settlement) {
-            return res.status(404).json({
-                success: false,
-                message: "Settlement not found"
-            });
+            throw new AppError(
+                "Settlement not found",
+                404
+            );
         }
-
+        
         // 4. Delete settlement
         await Settlement.findByIdAndDelete(settlementId);
 
@@ -203,11 +182,6 @@ export const deleteSettlement = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
