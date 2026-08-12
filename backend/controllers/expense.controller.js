@@ -1,10 +1,11 @@
 import Expense from "../models/expense.model.js";
 import Group from "../models/group.model.js";
 import Settlement from "../models/settlement.model.js";
+import AppError from "../utils/AppError.js";
 
 
 // CREATE EXPENSE
-export const createExpense = async (req, res) => {
+export const createExpense = async (req, res, next) => {
     try {
         // 1. Get group ID from URL
         const { groupId } = req.params;
@@ -14,28 +15,25 @@ export const createExpense = async (req, res) => {
 
         // 3. Validate data
         if (!description || amount === undefined) {
-            return res.status(400).json({
-                success: false,
-                message: "Please provide description and amount"
-            });
+            throw new AppError(
+                "Please provide description and amount",
+                400
+            );
         }
 
         // 4. Validate amount
         if (amount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Amount must be greater than 0"
-            });
+            throw new AppError(
+                "Amount must be greater than 0",
+                400
+            );
         }
 
         // 5. Find group
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 6. Check whether logged-in user is a member
@@ -45,10 +43,10 @@ export const createExpense = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
 
         // 7. Create expense
@@ -67,18 +65,13 @@ export const createExpense = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 // GET ALL GROUP EXPENSES
-export const getGroupExpenses = async (req, res) => {
+export const getGroupExpenses = async (req, res, next) => {
     try {
         // 1. Get group ID from URL
         const { groupId } = req.params;
@@ -87,10 +80,7 @@ export const getGroupExpenses = async (req, res) => {
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 3. Check if logged-in user is a member
@@ -100,10 +90,10 @@ export const getGroupExpenses = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
 
         // 4. Get all expenses of this group
@@ -119,18 +109,13 @@ export const getGroupExpenses = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 // GET EXPENSE BY ID
-export const getExpenseById = async (req, res) => {
+export const getExpenseById = async (req, res, next) => {
     try {
         // 1. Get IDs from URL
         const { groupId, expenseId } = req.params;
@@ -139,10 +124,7 @@ export const getExpenseById = async (req, res) => {
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 3. Check if logged-in user is a member
@@ -152,10 +134,10 @@ export const getExpenseById = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
 
         // 4. Find expense inside this group
@@ -165,10 +147,7 @@ export const getExpenseById = async (req, res) => {
         });
 
         if (!expense) {
-            return res.status(404).json({
-                success: false,
-                message: "Expense not found"
-            });
+            throw new AppError("Expense not found", 404);
         }
 
         // 5. Return expense
@@ -178,18 +157,13 @@ export const getExpenseById = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 // UPDATE EXPENSE
-export const updateExpense = async (req, res) => {
+export const updateExpense = async (req, res, next) => {
     try {
         // 1. Get IDs from URL
         const { groupId, expenseId } = req.params;
@@ -201,10 +175,7 @@ export const updateExpense = async (req, res) => {
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 4. Check if logged-in user is a member
@@ -214,12 +185,11 @@ export const updateExpense = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
-
         // 5. Find expense
         const expense = await Expense.findOne({
             _id: expenseId,
@@ -227,10 +197,7 @@ export const updateExpense = async (req, res) => {
         });
 
         if (!expense) {
-            return res.status(404).json({
-                success: false,
-                message: "Expense not found"
-            });
+            throw new AppError("Expense not found", 404);
         }
 
         // 6. Only the person who paid can update
@@ -238,18 +205,18 @@ export const updateExpense = async (req, res) => {
             expense.paidBy.toString() !==
             req.user._id.toString()
         ) {
-            return res.status(403).json({
-                success: false,
-                message: "Only the person who paid can update this expense"
-            });
+            throw new AppError(
+                "Only the person who paid can update this expense",
+                403
+            );
         }
 
         // 7. Validate amount if provided
         if (amount !== undefined && amount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Amount must be greater than 0"
-            });
+            throw new AppError(
+                "Amount must be greater than 0",
+                400
+            );
         }
 
         // 8. Update only provided fields
@@ -272,17 +239,12 @@ export const updateExpense = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 // DELETE EXPENSE
-export const deleteExpense = async (req, res) => {
+export const deleteExpense = async (req, res, next) => {
     try {
         // 1. Get IDs from URL
         const { groupId, expenseId } = req.params;
@@ -291,10 +253,7 @@ export const deleteExpense = async (req, res) => {
         const group = await Group.findById(groupId);
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 3. Check if logged-in user is a member
@@ -304,10 +263,10 @@ export const deleteExpense = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
 
         // 4. Find expense
@@ -317,10 +276,7 @@ export const deleteExpense = async (req, res) => {
         });
 
         if (!expense) {
-            return res.status(404).json({
-                success: false,
-                message: "Expense not found"
-            });
+            throw new AppError("Expense not found", 404);
         }
 
         // 5. Check if logged-in user is the person who paid
@@ -328,10 +284,10 @@ export const deleteExpense = async (req, res) => {
             expense.paidBy.toString() !==
             req.user._id.toString()
         ) {
-            return res.status(403).json({
-                success: false,
-                message: "Only the person who paid can delete this expense"
-            });
+            throw new AppError(
+                "Only the person who paid can delete this expense",
+                403
+            );
         }
 
         // 6. Delete expense
@@ -344,18 +300,13 @@ export const deleteExpense = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 // GET GROUP BALANCES
-export const getGroupBalances = async (req, res) => {
+export const getGroupBalances = async (req, res, next) => {
     try {
         const { groupId } = req.params;
 
@@ -366,10 +317,7 @@ export const getGroupBalances = async (req, res) => {
         );
 
         if (!group) {
-            return res.status(404).json({
-                success: false,
-                message: "Group not found"
-            });
+            throw new AppError("Group not found", 404);
         }
 
         // 2. Check membership
@@ -379,10 +327,10 @@ export const getGroupBalances = async (req, res) => {
         );
 
         if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not a member of this group"
-            });
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
         }
 
         // 3. Get all group expenses
@@ -405,10 +353,10 @@ export const getGroupBalances = async (req, res) => {
         const memberCount = group.members.length;
 
         if (memberCount === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Group has no members"
-            });
+            throw new AppError(
+                "Group has no members",
+                400
+            );
         }
 
         const sharePerMember = totalExpense / memberCount;
@@ -474,11 +422,6 @@ export const getGroupBalances = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };

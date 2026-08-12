@@ -5,6 +5,7 @@ import  authRouter from './routes/auth.route.js'
 import groupRoutes from './routes/group.route.js'
 import expenseRoutes from "./routes/expense.route.js";
 import settlementRoutes from"./routes/settlement.route.js";
+import { errorMiddleware } from './middleware/error.middleware.js';
 
 const app = express();
 // Middleware
@@ -20,6 +21,7 @@ app.use('/api/groups', groupRoutes);
 app.use("/api/groups", expenseRoutes);
 app.use("/api/groups", settlementRoutes);
 
+app.use(errorMiddleware);
 
 
 // Health Check Route
