@@ -425,3 +425,188 @@ export const getGroupBalances = async (req, res, next) => {
         next(err);
     }
 };
+
+
+// GET SIMPLIFIED SETTLEMENTS
+export const getSimplifiedSettlements = async (req, res, next) => {
+    try {
+        const { groupId } = req.params;
+
+        // 1. Find group and populate members
+        const group = await Group.findById(groupId).populate(
+            "members",
+            "name email"
+        );
+
+        if (!group) {
+            throw new AppError("Group not found", 404);
+        }
+
+        // 2. Check membership
+        const isMember = group.members.some(
+            (member) =>
+                member._id.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
+        }
+
+        // 3. Get expenses
+        const expenses = await Expense.find({
+            group: groupId
+        });
+
+        // 4. Get settlements already made
+        const settlements = await Settlement.find({
+            group: groupId
+        });
+
+        // 5. Calculate total expense
+        const totalExpense = expenses.reduce(
+            (total, expense) => total + expense.amount,
+            0
+        );
+
+        // 6. Calculate equal share
+        const memberCount = group.members.length;
+
+        if (memberCount === 0) {
+            throw new AppError(
+                "Group has no members",
+                400
+            );
+        }
+
+        const sharePerMember = totalExpense / memberCount;
+
+        // 7. Calculate net balance for each member
+        const balances = group.members.map((member) => {
+
+            // Total paid by member
+            const paid = expenses
+                .filter(
+                    (expense) =>
+                        expense.paidBy.toString() ===
+                        member._id.toString()
+                )
+                .reduce(
+                    (total, expense) => total + expense.amount,
+                    0
+                );
+
+            // Initial balance
+            let balance = paid - sharePerMember;
+
+            // Apply existing settlements
+            settlements.forEach((settlement) => {
+
+                // Member paid someone
+                if (
+                    settlement.from.toString() ===
+                    member._id.toString()
+                ) {
+                    balance += settlement.amount;
+                }
+
+                // Member received money
+                if (
+                    settlement.to.toString() ===
+                    member._id.toString()
+                ) {
+                    balance -= settlement.amount;
+                }
+            });
+
+            return {
+                userId: member._id,
+                name: member.name,
+                email: member.email,
+                balance: Number(balance.toFixed(2))
+            };
+        });
+
+        // 8. Separate debtors and creditors
+        const debtors = [];
+        const creditors = [];
+
+        balances.forEach((member) => {
+
+            if (member.balance < 0) {
+                debtors.push({
+                    ...member,
+                    balance: Math.abs(member.balance)
+                });
+            }
+
+            if (member.balance > 0) {
+                creditors.push({
+                    ...member
+                });
+            }
+        });
+
+        // 9. Simplify debts
+        const suggestedSettlements = [];
+
+        let debtorIndex = 0;
+        let creditorIndex = 0;
+
+        while (
+            debtorIndex < debtors.length &&
+            creditorIndex < creditors.length
+        ) {
+            const debtor = debtors[debtorIndex];
+            const creditor = creditors[creditorIndex];
+
+            const amount = Math.min(
+                debtor.balance,
+                creditor.balance
+            );
+
+            suggestedSettlements.push({
+                from: {
+                    userId: debtor.userId,
+                    name: debtor.name,
+                    email: debtor.email
+                },
+                to: {
+                    userId: creditor.userId,
+                    name: creditor.name,
+                    email: creditor.email
+                },
+                amount: Number(amount.toFixed(2))
+            });
+
+            debtor.balance -= amount;
+            creditor.balance -= amount;
+
+            if (debtor.balance < 0.01) {
+                debtorIndex++;
+            }
+
+            if (creditor.balance < 0.01) {
+                creditorIndex++;
+            }
+        }
+
+        // 10. Return result
+        return res.status(200).json({
+            success: true,
+            groupId,
+            totalExpense: Number(totalExpense.toFixed(2)),
+            memberCount,
+            sharePerMember: Number(
+                sharePerMember.toFixed(2)
+            ),
+            transactionCount: suggestedSettlements.length,
+            settlements: suggestedSettlements
+        });
+
+    } catch (err) {
+        next(err);
+    }
+};

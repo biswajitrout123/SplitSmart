@@ -2,7 +2,7 @@ import express from "express";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
-import { createExpense, getGroupExpenses, getExpenseById, deleteExpense, updateExpense, getGroupBalances } from "../controllers/expense.controller.js";
+import { createExpense, getGroupExpenses, getExpenseById, deleteExpense, updateExpense, getGroupBalances, getSimplifiedSettlements } from "../controllers/expense.controller.js";
 
 const router = express.Router();
 
@@ -26,6 +26,9 @@ router.delete('/:groupId/expenses/:expenseId', authMiddleware, deleteExpense);
 
 // GET GROUP BALANCES
 router.get('/:groupId/balances', authMiddleware, getGroupBalances);
+
+// GET SIMPLIFIED SETTLEMENTS
+router.get('/:groupId/simplified-settlements', authMiddleware, getSimplifiedSettlements);
 
 
 
