@@ -616,6 +616,7 @@ export const getSimplifiedSettlements = async (req, res, next) => {
 export const getExpenseAnalytics = async (req, res, next) => {
     try {
         const { groupId } = req.params;
+        const { startDate, endDate } = req.query;
 
         // 1. Find group
         const group = await Group.findById(groupId);
@@ -637,18 +638,77 @@ export const getExpenseAnalytics = async (req, res, next) => {
             );
         }
 
-        // 3. Get all expenses
-        const expenses = await Expense.find({
+        // 3. Build expense filter
+        const expenseFilter = {
             group: groupId
-        });
+        };
 
-        // 4. Calculate total expense
+        // 4. Validate and apply start date
+        if (startDate) {
+            const start = new Date(startDate);
+
+            if (isNaN(start.getTime())) {
+                throw new AppError(
+                    "Invalid startDate. Use YYYY-MM-DD",
+                    400
+                );
+            }
+
+            start.setHours(0, 0, 0, 0);
+
+            expenseFilter.createdAt = {
+                $gte: start
+            };
+        }
+
+        // 5. Validate and apply end date
+        if (endDate) {
+            const end = new Date(endDate);
+
+            if (isNaN(end.getTime())) {
+                throw new AppError(
+                    "Invalid endDate. Use YYYY-MM-DD",
+                    400
+                );
+            }
+
+            end.setHours(23, 59, 59, 999);
+
+            if (expenseFilter.createdAt) {
+                expenseFilter.createdAt.$lte = end;
+            } else {
+                expenseFilter.createdAt = {
+                    $lte: end
+                };
+            }
+        }
+
+        // 6. Validate date range
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            if (start > end) {
+                throw new AppError(
+                    "startDate cannot be after endDate",
+                    400
+                );
+            }
+        }
+
+        // 7. Get expenses
+        const expenses = await Expense.find(
+            expenseFilter
+        ).sort({ createdAt: -1 });
+
+        // 8. Calculate total expense
         const totalExpense = expenses.reduce(
-            (total, expense) => total + expense.amount,
+            (total, expense) =>
+                total + expense.amount,
             0
         );
 
-        // 5. Calculate category totals
+        // 9. Calculate category totals
         const categoryMap = {};
 
         expenses.forEach((expense) => {
@@ -661,7 +721,7 @@ export const getExpenseAnalytics = async (req, res, next) => {
             categoryMap[category] += expense.amount;
         });
 
-        // 6. Convert category totals into analytics
+        // 10. Build category breakdown
         const categoryBreakdown = Object.entries(categoryMap)
             .map(([category, amount]) => ({
                 category,
@@ -675,20 +735,62 @@ export const getExpenseAnalytics = async (req, res, next) => {
             }))
             .sort((a, b) => b.amount - a.amount);
 
-        // 7. Find highest spending category
+        // 11. Highest spending category
         const highestCategory =
             categoryBreakdown.length > 0
                 ? categoryBreakdown[0]
                 : null;
 
-        // 8. Return analytics
+        // 12. Calculate number of days in selected period
+        let periodDays = null;
+
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+
+            periodDays =
+                Math.ceil(
+                    (end - start) /
+                    (1000 * 60 * 60 * 24)
+                );
+        }
+
+        // 13. Average daily spending
+        const averageDailyExpense =
+            periodDays && periodDays > 0
+                ? totalExpense / periodDays
+                : null;
+
+        // 14. Return analytics
         return res.status(200).json({
             success: true,
             groupId,
-            totalExpense: Number(totalExpense.toFixed(2)),
+
+            period: {
+                startDate: startDate || null,
+                endDate: endDate || null
+            },
+
+            totalExpense: Number(
+                totalExpense.toFixed(2)
+            ),
+
             expenseCount: expenses.length,
+
             categoryCount: categoryBreakdown.length,
+
             highestCategory,
+
+            averageDailyExpense:
+                averageDailyExpense === null
+                    ? null
+                    : Number(
+                        averageDailyExpense.toFixed(2)
+                    ),
+
             categoryBreakdown
         });
 
@@ -696,4 +798,3 @@ export const getExpenseAnalytics = async (req, res, next) => {
         next(err);
     }
 };
-
