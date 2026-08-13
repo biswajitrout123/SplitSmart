@@ -798,3 +798,79 @@ export const getExpenseAnalytics = async (req, res, next) => {
         next(err);
     }
 };
+
+// GET MONTHLY EXPENSE TRENDS
+export const getMonthlyExpenseTrends = async (req, res, next) => {
+    try {
+        const { groupId } = req.params;
+
+        // 1. Find group
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+            throw new AppError("Group not found", 404);
+        }
+
+        // 2. Check membership
+        const isMember = group.members.some(
+            (memberId) =>
+                memberId.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
+        }
+
+        // 3. Get monthly spending using MongoDB aggregation
+        const monthlyData = await Expense.aggregate([
+            {
+                $match: {
+                    group: group._id
+                }
+            },
+
+            {
+                $group: {
+                    _id: {
+                        year: { $year: "$createdAt" },
+                        month: { $month: "$createdAt" }
+                    },
+                    total: {
+                        $sum: "$amount"
+                    },
+                    expenseCount: {
+                        $sum: 1
+                    }
+                }
+            },
+
+            {
+                $sort: {
+                    "_id.year": 1,
+                    "_id.month": 1
+                }
+            }
+        ]);
+
+        // 4. Format response
+        const monthlyTrends = monthlyData.map((item) => ({
+            year: item._id.year,
+            month: item._id.month,
+            totalExpense: Number(item.total.toFixed(2)),
+            expenseCount: item.expenseCount
+        }));
+
+        // 5. Return result
+        return res.status(200).json({
+            success: true,
+            groupId,
+            monthlyTrends
+        });
+
+    } catch (err) {
+        next(err);
+    }
+};
