@@ -2,7 +2,7 @@ import express from "express";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
-import { createExpense, getGroupExpenses, getExpenseById, deleteExpense, updateExpense, getGroupBalances, getSimplifiedSettlements } from "../controllers/expense.controller.js";
+import { createExpense, getGroupExpenses, getExpenseById, deleteExpense, updateExpense, getGroupBalances, getSimplifiedSettlements, getExpenseAnalytics } from "../controllers/expense.controller.js";
 
 const router = express.Router();
 
@@ -11,6 +11,9 @@ router.post("/:groupId/expenses", authMiddleware, createExpense);
 
 // GET ALL GROUP EXPENSES
 router.get("/:groupId/expenses", authMiddleware, getGroupExpenses);
+
+// GET EXPENSE ANALYTICS
+router.get('/:groupId/expenses/analytics', authMiddleware, getExpenseAnalytics);
 
 // GET EXPENSE BY ID
 router.get('/:groupId/expenses/:expenseId', authMiddleware, getExpenseById);
@@ -21,14 +24,13 @@ router.delete('/:groupId/expenses/:expenseId', authMiddleware, deleteExpense);
 // UPDATE EXPENSE
 router.patch('/:groupId/expenses/:expenseId', authMiddleware, updateExpense);
 
-// DELETE EXPENSE
-router.delete('/:groupId/expenses/:expenseId', authMiddleware, deleteExpense);
 
 // GET GROUP BALANCES
 router.get('/:groupId/balances', authMiddleware, getGroupBalances);
 
 // GET SIMPLIFIED SETTLEMENTS
 router.get('/:groupId/simplified-settlements', authMiddleware, getSimplifiedSettlements);
+
 
 
 

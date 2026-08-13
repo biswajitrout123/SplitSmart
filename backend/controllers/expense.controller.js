@@ -11,7 +11,7 @@ export const createExpense = async (req, res, next) => {
         const { groupId } = req.params;
 
         // 2. Get expense data from request body
-        const { description, amount } = req.body;
+        const { description, amount, category } = req.body;
 
         // 3. Validate data
         if (!description || amount === undefined) {
@@ -53,6 +53,7 @@ export const createExpense = async (req, res, next) => {
         const expense = await Expense.create({
             description,
             amount,
+            category,
             group: groupId,
             paidBy: req.user._id
         });
@@ -610,3 +611,89 @@ export const getSimplifiedSettlements = async (req, res, next) => {
         next(err);
     }
 };
+
+// GET EXPENSE ANALYTICS
+export const getExpenseAnalytics = async (req, res, next) => {
+    try {
+        const { groupId } = req.params;
+
+        // 1. Find group
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+            throw new AppError("Group not found", 404);
+        }
+
+        // 2. Check membership
+        const isMember = group.members.some(
+            (memberId) =>
+                memberId.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
+        }
+
+        // 3. Get all expenses
+        const expenses = await Expense.find({
+            group: groupId
+        });
+
+        // 4. Calculate total expense
+        const totalExpense = expenses.reduce(
+            (total, expense) => total + expense.amount,
+            0
+        );
+
+        // 5. Calculate category totals
+        const categoryMap = {};
+
+        expenses.forEach((expense) => {
+            const category = expense.category || "Other";
+
+            if (!categoryMap[category]) {
+                categoryMap[category] = 0;
+            }
+
+            categoryMap[category] += expense.amount;
+        });
+
+        // 6. Convert category totals into analytics
+        const categoryBreakdown = Object.entries(categoryMap)
+            .map(([category, amount]) => ({
+                category,
+                amount: Number(amount.toFixed(2)),
+                percentage:
+                    totalExpense === 0
+                        ? 0
+                        : Number(
+                            ((amount / totalExpense) * 100).toFixed(2)
+                        )
+            }))
+            .sort((a, b) => b.amount - a.amount);
+
+        // 7. Find highest spending category
+        const highestCategory =
+            categoryBreakdown.length > 0
+                ? categoryBreakdown[0]
+                : null;
+
+        // 8. Return analytics
+        return res.status(200).json({
+            success: true,
+            groupId,
+            totalExpense: Number(totalExpense.toFixed(2)),
+            expenseCount: expenses.length,
+            categoryCount: categoryBreakdown.length,
+            highestCategory,
+            categoryBreakdown
+        });
+
+    } catch (err) {
+        next(err);
+    }
+};
+

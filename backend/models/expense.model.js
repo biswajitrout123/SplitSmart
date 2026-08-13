@@ -18,6 +18,21 @@ const expenseSchema = new mongoose.Schema(
             min: [0.01, "Expense amount must be greater than 0"]
         },
 
+        category: {
+            type: String,
+            enum: [
+                "Food",
+                "Travel",
+                "Transport",
+                "Entertainment",
+                "Shopping",
+                "Bills",
+                "Health",
+                "Other"
+            ],
+            default: "Other"
+        },
+
         group: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Group",
