@@ -325,3 +325,117 @@ export const deleteSettlement = async (req, res, next) => {
         next(err);
     }
 };
+
+
+// GET SETTLEMENT SUMMARY
+export const getSettlementSummary = async (req, res, next) => {
+    try {
+        const { groupId } = req.params;
+
+        // 1. Find group
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+            throw new AppError("Group not found", 404);
+        }
+
+        // 2. Check membership
+        const isMember = group.members.some(
+            (memberId) =>
+                memberId.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            throw new AppError(
+                "You are not a member of this group",
+                403
+            );
+        }
+
+        // 3. Get all settlements
+        const settlements = await Settlement.find({
+            group: groupId
+        })
+            .populate("from", "name email")
+            .populate("to", "name email")
+            .sort({ createdAt: -1 });
+
+        // 4. Total amount settled
+        const totalSettled = settlements.reduce(
+            (total, settlement) =>
+                total + settlement.amount,
+            0
+        );
+
+        // 5. Calculate current user's payments
+        const userId = req.user._id.toString();
+
+        const amountPaidByMe = settlements
+            .filter(
+                (settlement) =>
+                    settlement.from._id.toString() === userId
+            )
+            .reduce(
+                (total, settlement) =>
+                    total + settlement.amount,
+                0
+            );
+
+        // 6. Calculate current user's received amount
+        const amountReceivedByMe = settlements
+            .filter(
+                (settlement) =>
+                    settlement.to._id.toString() === userId
+            )
+            .reduce(
+                (total, settlement) =>
+                    total + settlement.amount,
+                0
+            );
+
+        // 7. Net settlement
+        const netSettlement =
+            amountReceivedByMe - amountPaidByMe;
+
+        // 8. Get latest settlement
+        const lastSettlement = settlements.length > 0
+            ? settlements[0]
+            : null;
+
+        // 9. Get recent settlements
+        const recentSettlements = settlements.slice(0, 5);
+
+        // 10. Return summary
+        return res.status(200).json({
+            success: true,
+            groupId,
+
+            settlementCount: settlements.length,
+
+            totalSettled: Number(
+                totalSettled.toFixed(2)
+            ),
+
+            mySettlement: {
+                amountPaid: Number(
+                    amountPaidByMe.toFixed(2)
+                ),
+
+                amountReceived: Number(
+                    amountReceivedByMe.toFixed(2)
+                ),
+
+                netSettlement: Number(
+                    netSettlement.toFixed(2)
+                )
+            },
+
+            lastSettlement,
+
+            recentSettlements
+        });
+
+    } catch (err) {
+        next(err);
+    }
+};
