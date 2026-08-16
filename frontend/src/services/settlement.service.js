@@ -1,5 +1,6 @@
 import api from "./api";
 
+// CREATE SETTLEMENT
 export const createSettlement = async (
     groupId,
     settlementData
@@ -12,6 +13,7 @@ export const createSettlement = async (
     return response.data;
 };
 
+// GET GROUP SETTLEMENTS
 export const getGroupSettlements = async (groupId) => {
     const response = await api.get(
         `/groups/${groupId}/settlements`
@@ -20,6 +22,7 @@ export const getGroupSettlements = async (groupId) => {
     return response.data;
 };
 
+// DELETE SETTLEMENT
 export const deleteSettlement = async (
     groupId,
     settlementId
@@ -31,6 +34,7 @@ export const deleteSettlement = async (
     return response.data;
 };
 
+// GET SIMPLIFIED SETTLEMENTS
 export const getSimplifiedSettlements = async (groupId) => {
     const response = await api.get(
         `/groups/${groupId}/simplified-settlements`
@@ -39,6 +43,7 @@ export const getSimplifiedSettlements = async (groupId) => {
     return response.data;
 };
 
+// GET SETTLEMENT SUMMARY
 export const getSettlementSummary = async (groupId) => {
     const response = await api.get(
         `/groups/${groupId}/settlements/summary`

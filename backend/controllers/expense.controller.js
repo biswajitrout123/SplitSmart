@@ -100,7 +100,9 @@ export const getGroupExpenses = async (req, res, next) => {
         // 4. Get all expenses of this group
         const expenses = await Expense.find({
             group: groupId
-        }).sort({ createdAt: -1 });
+        })
+        .populate("paidBy", "name email")
+        .sort({ createdAt: -1 });
 
         // 5. Return expenses
         return res.status(200).json({
