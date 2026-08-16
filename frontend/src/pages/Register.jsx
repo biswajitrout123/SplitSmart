@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { registerUser } from "../services/auth.service";
 
-const Login = () => {
+const Register = () => {
     const navigate = useNavigate();
-    const { login } = useAuth();
 
     const [formData, setFormData] = useState({
+        name: "",
         email: "",
         password: ""
     });
@@ -28,31 +28,42 @@ const Login = () => {
 
         setError("");
 
+        if (!formData.name.trim()) {
+            setError("Please enter your name");
+            return;
+        }
+
         if (!formData.email.trim()) {
             setError("Please enter your email");
             return;
         }
 
         if (!formData.password) {
-            setError("Please enter your password");
+            setError("Please enter a password");
+            return;
+        }
+
+        if (formData.password.length < 6) {
+            setError("Password must be at least 6 characters");
             return;
         }
 
         try {
             setLoading(true);
 
-            await login({
+            await registerUser({
+                name: formData.name.trim(),
                 email: formData.email.trim(),
                 password: formData.password
             });
 
-            navigate("/dashboard");
+            navigate("/login");
         } catch (err) {
             console.error(err);
 
             setError(
                 err.response?.data?.message ||
-                "Invalid email or password"
+                "Failed to create account"
             );
         } finally {
             setLoading(false);
@@ -63,7 +74,7 @@ const Login = () => {
         <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-white">
             <div className="flex min-h-screen">
 
-                {/* Left side */}
+                {/* Left */}
                 <div className="hidden w-1/2 flex-col justify-center bg-slate-900 px-16 text-white lg:flex dark:bg-slate-950">
                     <div className="max-w-md">
                         <p className="text-sm font-medium uppercase tracking-wider text-slate-400">
@@ -71,32 +82,18 @@ const Login = () => {
                         </p>
 
                         <h1 className="mt-4 text-4xl font-semibold leading-tight">
-                            Keep group expenses simple.
+                            Start splitting expenses together.
                         </h1>
 
                         <p className="mt-5 text-base leading-7 text-slate-400">
-                            Split expenses with friends, track balances,
-                            record settlements, and always know who owes
-                            whom.
+                            Create your account and start organizing
+                            group expenses without keeping track of
+                            everything manually.
                         </p>
-
-                        <div className="mt-8 grid gap-3 text-sm text-slate-300">
-                            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-                                Track shared expenses
-                            </div>
-
-                            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-                                See group balances instantly
-                            </div>
-
-                            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-                                Record and manage settlements
-                            </div>
-                        </div>
                     </div>
                 </div>
 
-                {/* Right side */}
+                {/* Right */}
                 <div className="flex w-full items-center justify-center px-6 py-10 lg:w-1/2">
                     <div className="w-full max-w-md">
 
@@ -109,11 +106,11 @@ const Login = () => {
                             </Link>
 
                             <h2 className="mt-8 text-2xl font-semibold">
-                                Welcome back
+                                Create your account
                             </h2>
 
                             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                                Sign in to manage your shared expenses.
+                                Set up your account to start using SplitSmart.
                             </p>
                         </div>
 
@@ -129,6 +126,26 @@ const Login = () => {
                             onSubmit={handleSubmit}
                             className="space-y-5"
                         >
+                            <div>
+                                <label
+                                    htmlFor="name"
+                                    className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+                                >
+                                    Full name
+                                </label>
+
+                                <input
+                                    id="name"
+                                    name="name"
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    placeholder="Test Rout"
+                                    autoComplete="name"
+                                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
+                                />
+                            </div>
+
                             <div>
                                 <label
                                     htmlFor="email"
@@ -163,8 +180,8 @@ const Login = () => {
                                     type="password"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    placeholder="Enter your password"
-                                    autoComplete="current-password"
+                                    placeholder="At least 6 characters"
+                                    autoComplete="new-password"
                                     className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
                                 />
                             </div>
@@ -174,17 +191,19 @@ const Login = () => {
                                 disabled={loading}
                                 className="w-full rounded-lg bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
                             >
-                                {loading ? "Signing in..." : "Sign in"}
+                                {loading
+                                    ? "Creating account..."
+                                    : "Create account"}
                             </button>
                         </form>
 
                         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                            Don't have an account?{" "}
+                            Already have an account?{" "}
                             <Link
-                                to="/register"
+                                to="/login"
                                 className="font-medium text-slate-900 hover:underline dark:text-white"
                             >
-                                Create account
+                                Sign in
                             </Link>
                         </p>
                     </div>
@@ -194,4 +213,4 @@ const Login = () => {
     );
 };
 
-export default Login;
+export default Register;

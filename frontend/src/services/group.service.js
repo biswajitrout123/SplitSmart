@@ -25,10 +25,12 @@ export const getGroupById = async (groupId) => {
     return response.data;
 };
 
-export const addMember = async (groupId, userId) => {
+export const addMember = async (groupId, email) => {
     const response = await api.post(
         `/groups/${groupId}/members`,
-        { userId }
+        {
+            email
+        }
     );
 
     return response.data;
