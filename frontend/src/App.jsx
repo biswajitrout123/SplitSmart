@@ -1,9 +1,12 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Groups from "./pages/Groups";
+import GroupDetails from "./pages/GroupDetails";
 
 function Home() {
     return (
@@ -21,32 +24,26 @@ function Home() {
 
 function App() {
     return (
-        <AuthProvider>
-            <BrowserRouter>
-                <Routes>
+        <ThemeProvider>
+            <AuthProvider>
+                <BrowserRouter>
+                    <Routes>
 
-                    <Route
-                        path="/"
-                        element={<Home />}
-                    />
+                        <Route path="/" element={<Home />} />
 
-                    <Route
-                        path="/login"
-                        element={<Login />}
-                    />
+                        <Route path="/login" element={<Login />} />
 
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <ProtectedRoute>
-                                <Dashboard />
-                            </ProtectedRoute>
-                        }
-                    />
+                        <Route path="/dashboard" element={<ProtectedRoute>  <Dashboard /> </ProtectedRoute>} />
 
-                </Routes>
-            </BrowserRouter>
-        </AuthProvider>
+                        <Route path="/groups" element={<ProtectedRoute> <Groups /> </ProtectedRoute>} />
+
+                        <Route path="/groups/:groupId" element={<ProtectedRoute><GroupDetails /></ProtectedRoute>}></Route>
+
+
+                    </Routes>
+                </BrowserRouter>
+            </AuthProvider>
+        </ThemeProvider>
     );
 }
 
