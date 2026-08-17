@@ -48,3 +48,25 @@ export const deleteExpense = async (
 
     return response.data;
 };
+
+export const getExpenseAnalytics = async (
+    groupId,
+    params = {}
+) => {
+    const response = await api.get(
+        `/groups/${groupId}/expenses/analytics`,
+        {
+            params
+        }
+    );
+
+    return response.data;
+};
+
+export const getMonthlyExpenseTrends = async (groupId) => {
+    const response = await api.get(
+        `/groups/${groupId}/expenses/monthly-trends`
+    );
+
+    return response.data;
+};

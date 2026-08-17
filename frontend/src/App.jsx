@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -11,6 +11,7 @@ import Groups from "./pages/Groups";
 import GroupDetails from "./pages/GroupDetails";
 import Expenses from "./pages/Expenses";
 import Settlements from "./pages/Settlements";
+import Analytics from "./pages/Analytics";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -116,6 +117,8 @@ function App() {
                                 </ProtectedRoute>
                             }
                         />
+
+                        <Route path="/groups/:groupId/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
 
                     </Routes>
                 </BrowserRouter>
