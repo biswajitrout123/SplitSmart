@@ -1,5 +1,24 @@
 import mongoose from "mongoose";
 
+const expenseSplitSchema = new mongoose.Schema(
+    {
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
+
+        amount: {
+            type: Number,
+            required: true,
+            min: [0, "Split amount cannot be negative"]
+        }
+    },
+    {
+        _id: false
+    }
+);
+
 const expenseSchema = new mongoose.Schema(
     {
         description: {
@@ -43,6 +62,21 @@ const expenseSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true
+        },
+
+        splitType: {
+            type: String,
+            enum: [
+                "equal",
+                "exact",
+                "percentage"
+            ],
+            default: "equal"
+        },
+
+        splits: {
+            type: [expenseSplitSchema],
+            default: []
         }
     },
     {
@@ -50,6 +84,9 @@ const expenseSchema = new mongoose.Schema(
     }
 );
 
-const Expense = mongoose.model("Expense", expenseSchema);
+const Expense = mongoose.model(
+    "Expense",
+    expenseSchema
+);
 
 export default Expense;
