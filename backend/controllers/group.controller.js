@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import Expense from "../models/expense.model.js";
 import Settlement from "../models/settlement.model.js";
 import AppError from "../utils/AppError.js";
+import { calculateGroupBalances } from "../utils/groupBalance.util.js";
 
 export const createGroup = async (req, res) => {
     try {
@@ -73,8 +74,7 @@ export const getGroupById = async (req, res) => {
         // 1. Get group ID from URL 
         const { groupId } = req.params;
 
-        // 2. Find group
-        const group = await Group.findById(groupId);
+        const group = await Group.findById(groupId).populate("members", "name email");
 
         // 3. Check if group exists
         if (!group) {
@@ -86,7 +86,7 @@ export const getGroupById = async (req, res) => {
 
         // 4. Check if logged-in user is a member
         const isMember = group.members.some(
-            (memberId) => memberId.toString() == req.user._id.toString()
+            (member) => member._id.toString() === req.user._id.toString()
         );
         if (!isMember) {
             return res.status(403).json({
@@ -255,66 +255,20 @@ export const getGroupDashboard = async (req, res, next) => {
             .populate("to", "name email")
             .sort({ createdAt: -1 });
 
-        // 5. Total expense
-        const totalExpense = expenses.reduce(
-            (total, expense) => total + expense.amount,
-            0
-        );
-
-        // 6. Member share
-        const memberCount = group.members.length;
-
-        const sharePerMember =
-            memberCount > 0
-                ? totalExpense / memberCount
-                : 0;
-
-        // 7. Calculate balances
-        const balances = group.members.map((member) => {
-
-            const paid = expenses
-                .filter(
-                    (expense) =>
-                        expense.paidBy._id.toString() ===
-                        member._id.toString()
-                )
-                .reduce(
-                    (total, expense) =>
-                        total + expense.amount,
-                    0
-                );
-
-            let balance = paid - sharePerMember;
-
-            // Apply settlements
-            settlements.forEach((settlement) => {
-
-                // Member paid someone
-                if (
-                    settlement.from._id.toString() ===
-                    member._id.toString()
-                ) {
-                    balance += settlement.amount;
-                }
-
-                // Member received money
-                if (
-                    settlement.to._id.toString() ===
-                    member._id.toString()
-                ) {
-                    balance -= settlement.amount;
-                }
-            });
-
-            return {
-                userId: member._id,
-                name: member.name,
-                email: member.email,
-                paid: Number(paid.toFixed(2)),
-                share: Number(sharePerMember.toFixed(2)),
-                balance: Number(balance.toFixed(2))
-            };
+        const calculated = calculateGroupBalances({
+            members: group.members,
+            expenses,
+            settlements
         });
+
+        const balances = calculated.balances;
+        const totalExpense = calculated.totalExpense;
+
+        const currentUserBalance = balances.find(
+            b => b.userId.toString() === req.user._id.toString()
+        );
+        
+        const currentUserShare = currentUserBalance ? currentUserBalance.share : 0;
 
         // 8. Category analytics
         const categoryMap = {};
@@ -442,7 +396,7 @@ export const getGroupDashboard = async (req, res, next) => {
                     totalExpense.toFixed(2)
                 ),
                 sharePerMember: Number(
-                    sharePerMember.toFixed(2)
+                    currentUserShare.toFixed(2)
                 ),
                 expenseCount: expenses.length,
                 settlementCount: settlements.length

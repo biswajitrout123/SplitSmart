@@ -2,6 +2,7 @@ import Settlement from "../models/settlement.model.js";
 import Group from "../models/group.model.js";
 import Expense from "../models/expense.model.js";
 import AppError from "../utils/AppError.js";
+import { calculateGroupBalances } from "../utils/groupBalance.util.js";
 
 
 // CREATE SETTLEMENT
@@ -83,105 +84,36 @@ export const createSettlement = async (req, res, next) => {
             group: groupId
         });
 
-        // 11. Calculate member count
-        const memberCount = group.members.length;
+        const { balances } = calculateGroupBalances({
+            members: group.members,
+            expenses,
+            settlements
+        });
 
-        if (memberCount === 0) {
-            throw new AppError(
-                "Group has no members",
-                400
-            );
-        }
-
-        // 12. Calculate total expense
-        const totalExpense = expenses.reduce(
-            (total, expense) =>
-                total + expense.amount,
-            0
+        const senderBalanceObj = balances.find(
+            (b) => b.userId.toString() === req.user._id.toString()
+        );
+        const receiverBalanceObj = balances.find(
+            (b) => b.userId.toString() === to.toString()
         );
 
-        // 13. Calculate equal share
-        const sharePerMember =
-            totalExpense / memberCount;
+        if (!senderBalanceObj || !receiverBalanceObj) {
+             throw new AppError("Member not found in balances", 400);
+        }
 
-        // 14. Calculate sender balance
-        let senderPaid = 0;
+        const senderBalance = senderBalanceObj.balance;
+        const receiverBalance = receiverBalanceObj.balance;
 
-        expenses.forEach((expense) => {
-            if (
-                expense.paidBy.toString() ===
-                req.user._id.toString()
-            ) {
-                senderPaid += expense.amount;
-            }
-        });
-
-        let senderBalance =
-            senderPaid - sharePerMember;
-
-        // 15. Apply previous settlements to sender
-        settlements.forEach((settlement) => {
-
-            // Sender paid someone
-            if (
-                settlement.from.toString() ===
-                req.user._id.toString()
-            ) {
-                senderBalance += settlement.amount;
-            }
-
-            // Sender received money
-            if (
-                settlement.to.toString() ===
-                req.user._id.toString()
-            ) {
-                senderBalance -= settlement.amount;
-            }
-        });
-
-        // 16. Sender must actually owe money
-        if (senderBalance >= 0) {
+        // 16. Sender must actually owe money (negative balance)
+        if (senderBalance >= -0.01) {
             throw new AppError(
                 "You do not currently owe money in this group",
                 400
             );
         }
 
-        // 17. Calculate receiver balance
-        let receiverPaid = 0;
-
-        expenses.forEach((expense) => {
-            if (
-                expense.paidBy.toString() ===
-                to.toString()
-            ) {
-                receiverPaid += expense.amount;
-            }
-        });
-
-        let receiverBalance =
-            receiverPaid - sharePerMember;
-
-        // 18. Apply previous settlements to receiver
-        settlements.forEach((settlement) => {
-
-            if (
-                settlement.from.toString() ===
-                to.toString()
-            ) {
-                receiverBalance += settlement.amount;
-            }
-
-            if (
-                settlement.to.toString() ===
-                to.toString()
-            ) {
-                receiverBalance -= settlement.amount;
-            }
-        });
-
-        // 19. Receiver must be owed money
-        if (receiverBalance <= 0) {
+        // 19. Receiver must be owed money (positive balance)
+        if (receiverBalance <= 0.01) {
             throw new AppError(
                 "Receiver is not owed money in this group",
                 400

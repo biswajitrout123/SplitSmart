@@ -3,21 +3,18 @@ import Group from "../models/group.model.js";
 import Settlement from "../models/settlement.model.js";
 import AppError from "../utils/AppError.js";
 import { calculateExpenseSplits } from "../utils/expenseSplit.util.js";
+import { calculateGroupBalances } from "../utils/groupBalance.util.js";
 
 
 // CREATE EXPENSE
-export const createExpense = async (
-    req,
-    res,
-    next
-) => {
+export const createExpense = async (req, res, next) => {
     try {
         const { groupId } = req.params;
 
         const {
             description,
             amount,
-            category,
+            category = "Other",
             splitType = "equal",
             splits = []
         } = req.body;
@@ -32,12 +29,42 @@ export const createExpense = async (
             );
         }
 
+        const numericAmount = Number(amount);
+
         if (
             amount === undefined ||
-            Number(amount) <= 0
+            amount === null ||
+            Number.isNaN(numericAmount) ||
+            numericAmount <= 0
         ) {
             throw new AppError(
                 "Expense amount must be greater than 0",
+                400
+            );
+        }
+
+        // ---------------------------------------------
+        // VALIDATE SPLIT TYPE
+        // ---------------------------------------------
+        const allowedSplitTypes = [
+            "equal",
+            "exact",
+            "percentage"
+        ];
+
+        if (!allowedSplitTypes.includes(splitType)) {
+            throw new AppError(
+                "Invalid split type",
+                400
+            );
+        }
+
+        // ---------------------------------------------
+        // VALIDATE SPLITS ARRAY
+        // ---------------------------------------------
+        if (!Array.isArray(splits)) {
+            throw new AppError(
+                "Splits must be an array",
                 400
             );
         }
@@ -57,12 +84,11 @@ export const createExpense = async (
         // ---------------------------------------------
         // CHECK MEMBERSHIP
         // ---------------------------------------------
-        const isMember =
-            group.members.some(
-                (memberId) =>
-                    memberId.toString() ===
-                    req.user._id.toString()
-            );
+        const isMember = group.members.some(
+            (memberId) =>
+                memberId.toString() ===
+                req.user._id.toString()
+        );
 
         if (!isMember) {
             throw new AppError(
@@ -74,37 +100,25 @@ export const createExpense = async (
         // ---------------------------------------------
         // CALCULATE SPLITS
         // ---------------------------------------------
-        const calculatedSplits =
-            calculateExpenseSplits({
-                amount: Number(amount),
-                splitType,
-                splits,
-                memberIds: group.members
-            });
+        const calculatedSplits = calculateExpenseSplits({
+            amount: numericAmount,
+            splitType,
+            splits,
+            memberIds: group.members
+        });
 
         // ---------------------------------------------
         // CREATE EXPENSE
         // ---------------------------------------------
-        const expense =
-            await Expense.create({
-                description:
-                    description.trim(),
-
-                amount: Number(amount),
-
-                category:
-                    category || "Other",
-
-                group: groupId,
-
-                paidBy:
-                    req.user._id,
-
-                splitType,
-
-                splits:
-                    calculatedSplits
-            });
+        const expense = await Expense.create({
+            description: description.trim(),
+            amount: numericAmount,
+            category,
+            group: groupId,
+            paidBy: req.user._id,
+            splitType,
+            splits: calculatedSplits
+        });
 
         // ---------------------------------------------
         // POPULATE RESPONSE
@@ -120,10 +134,12 @@ export const createExpense = async (
             }
         ]);
 
+        // ---------------------------------------------
+        // SUCCESS RESPONSE
+        // ---------------------------------------------
         return res.status(201).json({
             success: true,
-            message:
-                "Expense created successfully",
+            message: "Expense created successfully",
             expense
         });
 
@@ -370,20 +386,14 @@ export const deleteExpense = async (req, res, next) => {
 };
 
 // GET GROUP BALANCES
-export const getGroupBalances = async (
-    req,
-    res,
-    next
-) => {
+export const getGroupBalances = async (req, res, next) => {
     try {
         const { groupId } = req.params;
 
-        const group =
-            await Group.findById(groupId)
-                .populate(
-                    "members",
-                    "name email"
-                );
+        const group = await Group.findById(groupId).populate(
+            "members",
+            "name email"
+        );
 
         if (!group) {
             throw new AppError(
@@ -392,12 +402,11 @@ export const getGroupBalances = async (
             );
         }
 
-        const isMember =
-            group.members.some(
-                (member) =>
-                    member._id.toString() ===
-                    req.user._id.toString()
-            );
+        const isMember = group.members.some(
+            (member) =>
+                member._id.toString() ===
+                req.user._id.toString()
+        );
 
         if (!isMember) {
             throw new AppError(
@@ -406,140 +415,31 @@ export const getGroupBalances = async (
             );
         }
 
-        const expenses =
-            await Expense.find({
-                group: groupId
-            });
+        const expenses = await Expense.find({
+            group: groupId
+        });
 
-        const settlements =
-            await Settlement.find({
-                group: groupId
-            });
+        const settlements = await Settlement.find({
+            group: groupId
+        });
 
-        const totalExpense =
-            expenses.reduce(
-                (total, expense) =>
-                    total + expense.amount,
-                0
-            );
-
-        const balances =
-            group.members.map(
-                (member) => {
-
-                    // ---------------------------------
-                    // HOW MUCH MEMBER PAID
-                    // ---------------------------------
-                    const paid =
-                        expenses
-                            .filter(
-                                (expense) =>
-                                    expense.paidBy
-                                        .toString() ===
-                                    member._id.toString()
-                            )
-                            .reduce(
-                                (total, expense) =>
-                                    total +
-                                    expense.amount,
-                                0
-                            );
-
-                    // ---------------------------------
-                    // HOW MUCH MEMBER OWES
-                    // ---------------------------------
-                    const owed =
-                        expenses.reduce(
-                            (total, expense) => {
-
-                                const split =
-                                    expense.splits?.find(
-                                        (item) =>
-                                            item.user
-                                                .toString() ===
-                                            member._id.toString()
-                                    );
-
-                                return (
-                                    total +
-                                    (split
-                                        ? split.amount
-                                        : 0)
-                                );
-                            },
-                            0
-                        );
-
-                    // ---------------------------------
-                    // INITIAL BALANCE
-                    // ---------------------------------
-                    let balance =
-                        paid - owed;
-
-                    // ---------------------------------
-                    // APPLY SETTLEMENTS
-                    // ---------------------------------
-                    settlements.forEach(
-                        (settlement) => {
-
-                            // member paid someone
-                            if (
-                                settlement.from
-                                    .toString() ===
-                                member._id.toString()
-                            ) {
-                                balance +=
-                                    settlement.amount;
-                            }
-
-                            // member received money
-                            if (
-                                settlement.to
-                                    .toString() ===
-                                member._id.toString()
-                            ) {
-                                balance -=
-                                    settlement.amount;
-                            }
-                        }
-                    );
-
-                    return {
-                        userId:
-                            member._id,
-
-                        name:
-                            member.name,
-
-                        email:
-                            member.email,
-
-                        paid:
-                            Number(
-                                paid.toFixed(2)
-                            ),
-
-                        owed:
-                            Number(
-                                owed.toFixed(2)
-                            ),
-
-                        balance:
-                            Number(
-                                balance.toFixed(2)
-                            )
-                    };
-                }
-            );
+        const {
+            totalExpense,
+            memberCount,
+            balances
+        } = calculateGroupBalances({
+            members: group.members,
+            expenses,
+            settlements
+        });
 
         return res.status(200).json({
             success: true,
             groupId,
 
-            totalExpense:
-                Number(
-                    totalExpense.toFixed(2)
-                ),
+            totalExpense,
+
+            memberCount,
 
             balances
         });
@@ -551,24 +451,30 @@ export const getGroupBalances = async (
 
 
 // GET SIMPLIFIED SETTLEMENTS
-export const getSimplifiedSettlements = async (req, res, next) => {
+export const getSimplifiedSettlements = async (
+    req,
+    res,
+    next
+) => {
     try {
         const { groupId } = req.params;
 
-        // 1. Find group and populate members
         const group = await Group.findById(groupId).populate(
             "members",
             "name email"
         );
 
         if (!group) {
-            throw new AppError("Group not found", 404);
+            throw new AppError(
+                "Group not found",
+                404
+            );
         }
 
-        // 2. Check membership
         const isMember = group.members.some(
             (member) =>
-                member._id.toString() === req.user._id.toString()
+                member._id.toString() ===
+                req.user._id.toString()
         );
 
         if (!isMember) {
@@ -578,101 +484,59 @@ export const getSimplifiedSettlements = async (req, res, next) => {
             );
         }
 
-        // 3. Get expenses
         const expenses = await Expense.find({
             group: groupId
         });
 
-        // 4. Get settlements already made
         const settlements = await Settlement.find({
             group: groupId
         });
 
-        // 5. Calculate total expense
-        const totalExpense = expenses.reduce(
-            (total, expense) => total + expense.amount,
-            0
-        );
-
-        // 6. Calculate equal share
-        const memberCount = group.members.length;
-
-        if (memberCount === 0) {
-            throw new AppError(
-                "Group has no members",
-                400
-            );
-        }
-
-        const sharePerMember = totalExpense / memberCount;
-
-        // 7. Calculate net balance for each member
-        const balances = group.members.map((member) => {
-
-            // Total paid by member
-            const paid = expenses
-                .filter(
-                    (expense) =>
-                        expense.paidBy.toString() ===
-                        member._id.toString()
-                )
-                .reduce(
-                    (total, expense) => total + expense.amount,
-                    0
-                );
-
-            // Initial balance
-            let balance = paid - sharePerMember;
-
-            // Apply existing settlements
-            settlements.forEach((settlement) => {
-
-                // Member paid someone
-                if (
-                    settlement.from.toString() ===
-                    member._id.toString()
-                ) {
-                    balance += settlement.amount;
-                }
-
-                // Member received money
-                if (
-                    settlement.to.toString() ===
-                    member._id.toString()
-                ) {
-                    balance -= settlement.amount;
-                }
-            });
-
-            return {
-                userId: member._id,
-                name: member.name,
-                email: member.email,
-                balance: Number(balance.toFixed(2))
-            };
+        const {
+            totalExpense,
+            memberCount,
+            balances
+        } = calculateGroupBalances({
+            members: group.members,
+            expenses,
+            settlements
         });
 
-        // 8. Separate debtors and creditors
+        // --------------------------------------------------
+        // DEBTORS
+        // --------------------------------------------------
+
         const debtors = [];
+
+        // --------------------------------------------------
+        // CREDITORS
+        // --------------------------------------------------
+
         const creditors = [];
 
         balances.forEach((member) => {
 
-            if (member.balance < 0) {
+            if (member.balance < -0.01) {
+
                 debtors.push({
                     ...member,
-                    balance: Math.abs(member.balance)
+                    balance:
+                        Math.abs(member.balance)
                 });
             }
 
-            if (member.balance > 0) {
+            if (member.balance > 0.01) {
+
                 creditors.push({
                     ...member
                 });
             }
         });
 
-        // 9. Simplify debts
+        // --------------------------------------------------
+        // SIMPLIFY SETTLEMENTS
+        // --------------------------------------------------
+
         const suggestedSettlements = [];
 
         let debtorIndex = 0;
@@ -682,29 +546,41 @@ export const getSimplifiedSettlements = async (req, res, next) => {
             debtorIndex < debtors.length &&
             creditorIndex < creditors.length
         ) {
-            const debtor = debtors[debtorIndex];
-            const creditor = creditors[creditorIndex];
+
+            const debtor =
+                debtors[debtorIndex];
+
+            const creditor =
+                creditors[creditorIndex];
 
             const amount = Math.min(
                 debtor.balance,
                 creditor.balance
             );
 
-            suggestedSettlements.push({
-                from: {
-                    userId: debtor.userId,
-                    name: debtor.name,
-                    email: debtor.email
-                },
-                to: {
-                    userId: creditor.userId,
-                    name: creditor.name,
-                    email: creditor.email
-                },
-                amount: Number(amount.toFixed(2))
-            });
+            if (amount > 0) {
+
+                suggestedSettlements.push({
+                    from: {
+                        userId: debtor.userId,
+                        name: debtor.name,
+                        email: debtor.email
+                    },
+
+                    to: {
+                        userId: creditor.userId,
+                        name: creditor.name,
+                        email: creditor.email
+                    },
+
+                    amount: Number(
+                        amount.toFixed(2)
+                    )
+                });
+            }
 
             debtor.balance -= amount;
+
             creditor.balance -= amount;
 
             if (debtor.balance < 0.01) {
@@ -716,17 +592,19 @@ export const getSimplifiedSettlements = async (req, res, next) => {
             }
         }
 
-        // 10. Return result
         return res.status(200).json({
             success: true,
             groupId,
-            totalExpense: Number(totalExpense.toFixed(2)),
+
+            totalExpense,
+
             memberCount,
-            sharePerMember: Number(
-                sharePerMember.toFixed(2)
-            ),
-            transactionCount: suggestedSettlements.length,
-            settlements: suggestedSettlements
+
+            transactionCount:
+                suggestedSettlements.length,
+
+            settlements:
+                suggestedSettlements
         });
 
     } catch (err) {

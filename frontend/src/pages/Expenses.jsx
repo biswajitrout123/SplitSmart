@@ -11,26 +11,67 @@ import {
     deleteExpense
 } from "../services/expense.service";
 
+const SPLIT_TYPES = {
+    EQUAL: "equal",
+    EXACT: "exact",
+    PERCENTAGE: "percentage"
+};
+
+const CATEGORIES = [
+    "Food",
+    "Travel",
+    "Transport",
+    "Entertainment",
+    "Shopping",
+    "Bills",
+    "Health",
+    "Other"
+];
+
 const Expenses = () => {
     const { groupId } = useParams();
     const navigate = useNavigate();
 
+    // =====================================================
+    // DATA
+    // =====================================================
+
     const [group, setGroup] = useState(null);
     const [expenses, setExpenses] = useState([]);
+
+    // =====================================================
+    // PAGE STATE
+    // =====================================================
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    // =====================================================
+    // CREATE FORM STATE
+    // =====================================================
+
     const [showForm, setShowForm] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Edit state
+    // =====================================================
+    // EDIT STATE
+    // =====================================================
+
     const [editingExpense, setEditingExpense] = useState(null);
     const [savingEdit, setSavingEdit] = useState(false);
 
-    // Delete state
-    const [deletingExpenseId, setDeletingExpenseId] = useState(null);
+    // =====================================================
+    // DELETE STATE
+    // =====================================================
+
+    const [deletingExpenseId, setDeletingExpenseId] =
+        useState(null);
+
     const [deleting, setDeleting] = useState(false);
+
+    // =====================================================
+    // EXPENSE FORM
+    // =====================================================
 
     const [formData, setFormData] = useState({
         description: "",
@@ -38,21 +79,101 @@ const Expenses = () => {
         category: "Other"
     });
 
-    // ---------------------------------------------------
+    // =====================================================
+    // SPLIT STATE
+    // =====================================================
+
+    const [splitType, setSplitType] = useState(
+        SPLIT_TYPES.EQUAL
+    );
+
+    /*
+        IMPORTANT FIX
+
+        Instead of:
+
+        [
+            {
+                user: "id1",
+                amount: "",
+                percentage: ""
+            },
+            {
+                user: "id2",
+                amount: "",
+                percentage: ""
+            }
+        ]
+
+        we store:
+
+        {
+            "id1": {
+                user: "id1",
+                amount: "",
+                percentage: ""
+            },
+            "id2": {
+                user: "id2",
+                amount: "",
+                percentage: ""
+            }
+        }
+
+        This guarantees that each member has
+        completely independent state.
+    */
+
+    const [splitValues, setSplitValues] = useState({});
+
+    // =====================================================
+    // CREATE INITIAL SPLIT VALUES
+    // =====================================================
+
+    const createInitialSplitValues = (members = []) => {
+        const initialValues = {};
+
+        members.forEach((member) => {
+            const userId = String(member._id);
+
+            initialValues[userId] = {
+                user: member._id,
+                amount: "",
+                percentage: ""
+            };
+        });
+
+        return initialValues;
+    };
+
+    // =====================================================
     // LOAD GROUP + EXPENSES
-    // ---------------------------------------------------
+    // =====================================================
+
     const loadExpenses = async () => {
         try {
             setLoading(true);
             setError("");
 
-            const [groupData, expenseData] = await Promise.all([
-                getGroupById(groupId),
-                getGroupExpenses(groupId)
-            ]);
+            const [groupData, expenseData] =
+                await Promise.all([
+                    getGroupById(groupId),
+                    getGroupExpenses(groupId)
+                ]);
 
-            setGroup(groupData.group);
-            setExpenses(expenseData.expenses || []);
+            const currentGroup = groupData?.group;
+
+            setGroup(currentGroup || null);
+
+            setExpenses(
+                expenseData?.expenses || []
+            );
+
+            setSplitValues(
+                createInitialSplitValues(
+                    currentGroup?.members || []
+                )
+            );
         } catch (err) {
             console.error(err);
 
@@ -71,9 +192,10 @@ const Expenses = () => {
         }
     }, [groupId]);
 
-    // ---------------------------------------------------
+    // =====================================================
     // FORM CHANGE
-    // ---------------------------------------------------
+    // =====================================================
+
     const handleChange = (e) => {
         const { name, value } = e.target;
 
@@ -81,32 +203,438 @@ const Expenses = () => {
             ...prev,
             [name]: value
         }));
+
+        setError("");
     };
 
-    // ---------------------------------------------------
+    // =====================================================
     // RESET FORM
-    // ---------------------------------------------------
+    // =====================================================
+
     const resetForm = () => {
         setFormData({
             description: "",
             amount: "",
             category: "Other"
         });
+
+        setSplitType(
+            SPLIT_TYPES.EQUAL
+        );
+
+        setSplitValues(
+            createInitialSplitValues(
+                group?.members || []
+            )
+        );
     };
 
-    // ---------------------------------------------------
+    // =====================================================
+    // SPLIT TYPE CHANGE
+    // =====================================================
+
+    const handleSplitTypeChange = (e) => {
+        const newSplitType = e.target.value;
+
+        setSplitType(newSplitType);
+
+        // Clear old exact/percentage values
+        setSplitValues(
+            createInitialSplitValues(
+                group?.members || []
+            )
+        );
+
+        setError("");
+    };
+
+    // =====================================================
+    // SPLIT VALUE CHANGE
+    // =====================================================
+
+    const handleSplitValueChange = (
+        memberId,
+        field,
+        value
+    ) => {
+        const userId = String(memberId);
+
+        setSplitValues((prev) => ({
+            ...prev,
+            [userId]: {
+                ...(prev[userId] || {
+                    user: memberId,
+                    amount: "",
+                    percentage: ""
+                }),
+
+                user: memberId,
+
+                [field]: value
+            }
+        }));
+
+        setError("");
+    };
+
+    // =====================================================
+    // GET MEMBER SPLIT
+    // =====================================================
+
+    const getMemberSplit = (memberId) => {
+        return (
+            splitValues[String(memberId)] || {
+                user: memberId,
+                amount: "",
+                percentage: ""
+            }
+        );
+    };
+
+    // =====================================================
+    // BUILD SPLIT PAYLOAD
+    // =====================================================
+
+    const buildSplitPayload = () => {
+        const members = group?.members || [];
+
+        if (members.length === 0) {
+            throw new Error(
+                "This group has no members."
+            );
+        }
+
+        const totalAmount = Number(
+            formData.amount
+        );
+
+        if (
+            !Number.isFinite(totalAmount) ||
+            totalAmount <= 0
+        ) {
+            throw new Error(
+                "Please enter a valid expense amount."
+            );
+        }
+
+        // =================================================
+        // EQUAL
+        // =================================================
+
+        if (
+            splitType ===
+            SPLIT_TYPES.EQUAL
+        ) {
+            // Backend calculates equal shares.
+            return [];
+        }
+
+        // =================================================
+        // EXACT
+        // =================================================
+
+        if (
+            splitType ===
+            SPLIT_TYPES.EXACT
+        ) {
+            const splits = members.map(
+                (member) => {
+                    const split =
+                        getMemberSplit(
+                            member._id
+                        );
+
+                    return {
+                        user: member._id,
+
+                        amount: Number(
+                            split.amount || 0
+                        )
+                    };
+                }
+            );
+
+            const splitTotal =
+                splits.reduce(
+                    (sum, split) =>
+                        sum + split.amount,
+                    0
+                );
+
+            if (
+                Math.abs(
+                    splitTotal -
+                    totalAmount
+                ) > 0.01
+            ) {
+                throw new Error(
+                    `Exact split total must equal ₹${totalAmount.toFixed(
+                        2
+                    )}. Current total is ₹${splitTotal.toFixed(
+                        2
+                    )}.`
+                );
+            }
+
+            return splits;
+        }
+
+        // =================================================
+        // PERCENTAGE
+        // =================================================
+
+        if (
+            splitType ===
+            SPLIT_TYPES.PERCENTAGE
+        ) {
+            const splits = members.map(
+                (member) => {
+                    const split =
+                        getMemberSplit(
+                            member._id
+                        );
+
+                    return {
+                        user: member._id,
+
+                        percentage: Number(
+                            split.percentage || 0
+                        )
+                    };
+                }
+            );
+
+            const percentageTotal =
+                splits.reduce(
+                    (sum, split) =>
+                        sum +
+                        split.percentage,
+                    0
+                );
+
+            if (
+                Math.abs(
+                    percentageTotal -
+                    100
+                ) > 0.01
+            ) {
+                throw new Error(
+                    `Percentage split must equal 100%. Current total is ${percentageTotal.toFixed(
+                        2
+                    )}%.`
+                );
+            }
+
+            return splits;
+        }
+
+        throw new Error(
+            "Invalid split type."
+        );
+    };
+
+    // =====================================================
+    // SPLIT PREVIEW
+    // =====================================================
+
+    const getSplitPreview = () => {
+        const members = group?.members || [];
+
+        const total = Number(
+            formData.amount || 0
+        );
+
+        if (
+            members.length === 0 ||
+            total <= 0
+        ) {
+            return [];
+        }
+
+        // =================================================
+        // EQUAL
+        // =================================================
+
+        if (
+            splitType ===
+            SPLIT_TYPES.EQUAL
+        ) {
+            const baseAmount =
+                Math.floor(
+                    (
+                        total /
+                        members.length
+                    ) * 100
+                ) / 100;
+
+            const distributed =
+                baseAmount *
+                members.length;
+
+            const remaining =
+                Number(
+                    (
+                        total -
+                        distributed
+                    ).toFixed(2)
+                );
+
+            return members.map(
+                (member, index) => ({
+                    userId: String(
+                        member._id
+                    ),
+
+                    name:
+                        member.name,
+
+                    amount:
+                        index ===
+                            members.length - 1
+                            ? Number(
+                                (
+                                    baseAmount +
+                                    remaining
+                                ).toFixed(2)
+                            )
+                            : Number(
+                                baseAmount.toFixed(
+                                    2
+                                )
+                            )
+                })
+            );
+        }
+
+        // =================================================
+        // EXACT
+        // =================================================
+
+        if (
+            splitType ===
+            SPLIT_TYPES.EXACT
+        ) {
+            return members.map(
+                (member) => {
+                    const split =
+                        getMemberSplit(
+                            member._id
+                        );
+
+                    return {
+                        userId: String(
+                            member._id
+                        ),
+
+                        name:
+                            member.name,
+
+                        amount:
+                            Number(
+                                split.amount ||
+                                0
+                            )
+                    };
+                }
+            );
+        }
+
+        // =================================================
+        // PERCENTAGE
+        // =================================================
+
+        if (
+            splitType ===
+            SPLIT_TYPES.PERCENTAGE
+        ) {
+            return members.map(
+                (member) => {
+                    const split =
+                        getMemberSplit(
+                            member._id
+                        );
+
+                    const percentage =
+                        Number(
+                            split.percentage ||
+                            0
+                        );
+
+                    const previewAmount =
+                        Number(
+                            (
+                                total *
+                                (
+                                    percentage /
+                                    100
+                                )
+                            ).toFixed(2)
+                        );
+
+                    return {
+                        userId: String(
+                            member._id
+                        ),
+
+                        name:
+                            member.name,
+
+                        percentage,
+
+                        amount:
+                            previewAmount
+                    };
+                }
+            );
+        }
+
+        return [];
+    };
+
+    // =====================================================
     // CREATE EXPENSE
-    // ---------------------------------------------------
-    const handleCreateExpense = async (e) => {
+    // =====================================================
+
+    const handleCreateExpense = async (
+        e
+    ) => {
         e.preventDefault();
 
-        if (!formData.description.trim()) {
-            setError("Please enter an expense description");
+        if (
+            !formData.description.trim()
+        ) {
+            setError(
+                "Please enter an expense description."
+            );
             return;
         }
 
-        if (!formData.amount || Number(formData.amount) <= 0) {
-            setError("Please enter a valid amount");
+        const numericAmount =
+            Number(formData.amount);
+
+        if (
+            !formData.amount ||
+            !Number.isFinite(
+                numericAmount
+            ) ||
+            numericAmount <= 0
+        ) {
+            setError(
+                "Please enter a valid amount."
+            );
+            return;
+        }
+
+        let splits;
+
+        try {
+            splits =
+                buildSplitPayload();
+        } catch (err) {
+            setError(
+                err.message ||
+                "Invalid split details."
+            );
             return;
         }
 
@@ -114,43 +642,126 @@ const Expenses = () => {
             setSubmitting(true);
             setError("");
 
-            await createExpense(groupId, {
-                description: formData.description.trim(),
-                amount: Number(formData.amount),
-                category: formData.category
-            });
+            await createExpense(
+                groupId,
+                {
+                    description:
+                        formData.description.trim(),
+
+                    amount:
+                        numericAmount,
+
+                    category:
+                        formData.category,
+
+                    splitType,
+
+                    splits
+                }
+            );
 
             resetForm();
+
             setShowForm(false);
 
-            // Reload so paidBy is populated correctly
             await loadExpenses();
-
         } catch (err) {
             console.error(err);
 
             setError(
                 err.response?.data?.message ||
-                "Failed to create expense"
+                err.message ||
+                "Failed to create expense."
             );
         } finally {
             setSubmitting(false);
         }
     };
 
-    // ---------------------------------------------------
+    // =====================================================
     // START EDIT
-    // ---------------------------------------------------
-    const handleEditStart = (expense) => {
+    // =====================================================
+
+    const handleEditStart = (
+        expense
+    ) => {
         setError("");
 
-        setEditingExpense(expense);
+        setEditingExpense(
+            expense
+        );
 
         setFormData({
-            description: expense.description || "",
-            amount: expense.amount?.toString() || "",
-            category: expense.category || "Other"
+            description:
+                expense.description ||
+                "",
+
+            amount:
+                expense.amount
+                    ?.toString() || "",
+
+            category:
+                expense.category ||
+                "Other"
         });
+
+        /*
+         * Your current backend update endpoint
+         * updates description + amount.
+         *
+         * Split editing remains disabled here.
+         */
+
+        setSplitType(
+            expense.splitType ||
+            SPLIT_TYPES.EQUAL
+        );
+
+        const values =
+            createInitialSplitValues(
+                group?.members || []
+            );
+
+        if (
+            Array.isArray(
+                expense.splits
+            )
+        ) {
+            expense.splits.forEach(
+                (split) => {
+                    const userId =
+                        split.user?._id ||
+                        split.user;
+
+                    if (!userId) {
+                        return;
+                    }
+
+                    const key =
+                        String(userId);
+
+                    if (
+                        values[key]
+                    ) {
+                        values[key] = {
+                            ...values[key],
+
+                            amount:
+                                split.amount ??
+                                "",
+
+                            percentage:
+                                split.percentage ??
+                                ""
+                        };
+                    }
+                }
+            );
+        }
+
+        setSplitValues(
+            values
+        );
 
         setShowForm(false);
 
@@ -160,32 +771,55 @@ const Expenses = () => {
         });
     };
 
-    // ---------------------------------------------------
+    // =====================================================
     // CANCEL EDIT
-    // ---------------------------------------------------
+    // =====================================================
+
     const handleCancelEdit = () => {
-        setEditingExpense(null);
+        setEditingExpense(
+            null
+        );
+
         resetForm();
+
         setError("");
     };
 
-    // ---------------------------------------------------
+    // =====================================================
     // UPDATE EXPENSE
-    // ---------------------------------------------------
-    const handleUpdateExpense = async (e) => {
+    // =====================================================
+
+    const handleUpdateExpense = async (
+        e
+    ) => {
         e.preventDefault();
 
         if (!editingExpense) {
             return;
         }
 
-        if (!formData.description.trim()) {
-            setError("Please enter an expense description");
+        if (
+            !formData.description.trim()
+        ) {
+            setError(
+                "Please enter an expense description."
+            );
             return;
         }
 
-        if (!formData.amount || Number(formData.amount) <= 0) {
-            setError("Please enter a valid amount");
+        const numericAmount =
+            Number(formData.amount);
+
+        if (
+            !formData.amount ||
+            !Number.isFinite(
+                numericAmount
+            ) ||
+            numericAmount <= 0
+        ) {
+            setError(
+                "Please enter a valid amount."
+            );
             return;
         }
 
@@ -197,86 +831,131 @@ const Expenses = () => {
                 groupId,
                 editingExpense._id,
                 {
-                    description: formData.description.trim(),
-                    amount: Number(formData.amount),
-                    category: formData.category
+                    description:
+                        formData.description.trim(),
+
+                    amount:
+                        numericAmount
                 }
             );
 
-            setEditingExpense(null);
+            setEditingExpense(
+                null
+            );
+
             resetForm();
 
-            // Reload populated data
             await loadExpenses();
-
         } catch (err) {
             console.error(err);
 
             setError(
                 err.response?.data?.message ||
-                "Failed to update expense"
+                "Failed to update expense."
             );
         } finally {
             setSavingEdit(false);
         }
     };
 
-    // ---------------------------------------------------
-    // DELETE CONFIRMATION
-    // ---------------------------------------------------
-    const handleDeleteClick = (expenseId) => {
+    // =====================================================
+    // DELETE
+    // =====================================================
+
+    const handleDeleteClick = (
+        expenseId
+    ) => {
         setError("");
-        setDeletingExpenseId(expenseId);
+
+        setDeletingExpenseId(
+            expenseId
+        );
     };
 
-    // ---------------------------------------------------
-    // CANCEL DELETE
-    // ---------------------------------------------------
-    const handleCancelDelete = () => {
-        setDeletingExpenseId(null);
-    };
-
-    // ---------------------------------------------------
-    // DELETE EXPENSE
-    // ---------------------------------------------------
-    const handleDeleteExpense = async () => {
-        if (!deletingExpenseId) {
-            return;
-        }
-
-        try {
-            setDeleting(true);
-            setError("");
-
-            await deleteExpense(
-                groupId,
-                deletingExpenseId
+    const handleCancelDelete =
+        () => {
+            setDeletingExpenseId(
+                null
             );
+        };
 
-            setDeletingExpenseId(null);
+    const handleDeleteExpense =
+        async () => {
+            if (
+                !deletingExpenseId
+            ) {
+                return;
+            }
 
-            // Reload after delete
-            await loadExpenses();
+            try {
+                setDeleting(true);
+                setError("");
 
-        } catch (err) {
-            console.error(err);
+                await deleteExpense(
+                    groupId,
+                    deletingExpenseId
+                );
 
-            setError(
-                err.response?.data?.message ||
-                "Failed to delete expense"
-            );
-        } finally {
-            setDeleting(false);
-        }
+                setDeletingExpenseId(
+                    null
+                );
+
+                await loadExpenses();
+            } catch (err) {
+                console.error(err);
+
+                setError(
+                    err.response?.data?.message ||
+                    "Failed to delete expense."
+                );
+            } finally {
+                setDeleting(false);
+            }
+        };
+
+    // =====================================================
+    // SPLIT TOTALS
+    // =====================================================
+
+    const getExactTotal = () => {
+        return Object.values(
+            splitValues
+        ).reduce(
+            (sum, split) =>
+                sum +
+                Number(
+                    split.amount || 0
+                ),
+            0
+        );
     };
 
-    // ---------------------------------------------------
+    const getPercentageTotal = () => {
+        return Object.values(
+            splitValues
+        ).reduce(
+            (sum, split) =>
+                sum +
+                Number(
+                    split.percentage || 0
+                ),
+            0
+        );
+    };
+
+    const splitPreview =
+        getSplitPreview();
+
+    // =====================================================
     // FORM
-    // ---------------------------------------------------
+    // =====================================================
+
     const renderForm = () => (
         <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
 
+            {/* HEADER */}
             <div className="flex items-center justify-between">
+
                 <h2 className="text-lg font-medium text-slate-900 dark:text-white">
                     {editingExpense
                         ? "Edit expense"
@@ -286,7 +965,9 @@ const Expenses = () => {
                 {editingExpense && (
                     <button
                         type="button"
-                        onClick={handleCancelEdit}
+                        onClick={
+                            handleCancelEdit
+                        }
                         className="text-sm text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                     >
                         Cancel
@@ -300,73 +981,468 @@ const Expenses = () => {
                         ? handleUpdateExpense
                         : handleCreateExpense
                 }
-                className="mt-5 grid gap-4 md:grid-cols-3"
+                className="mt-5 space-y-6"
             >
-                {/* DESCRIPTION */}
-                <div>
-                    <label className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
-                        Description
-                    </label>
 
-                    <input
-                        type="text"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        placeholder="Dinner, hotel, cab..."
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                    />
+                {/* =================================================
+                    BASIC DETAILS
+                ================================================= */}
+
+                <div className="grid gap-4 md:grid-cols-3">
+
+                    {/* DESCRIPTION */}
+
+                    <div>
+                        <label className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
+                            Description
+                        </label>
+
+                        <input
+                            type="text"
+                            name="description"
+                            value={
+                                formData.description
+                            }
+                            onChange={
+                                handleChange
+                            }
+                            placeholder="Dinner, hotel, cab..."
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        />
+                    </div>
+
+                    {/* AMOUNT */}
+
+                    <div>
+                        <label className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
+                            Amount
+                        </label>
+
+                        <input
+                            type="number"
+                            name="amount"
+                            min="0.01"
+                            step="0.01"
+                            value={
+                                formData.amount
+                            }
+                            onChange={
+                                handleChange
+                            }
+                            placeholder="0.00"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        />
+                    </div>
+
+                    {/* CATEGORY */}
+
+                    <div>
+                        <label className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
+                            Category
+                        </label>
+
+                        <select
+                            name="category"
+                            value={
+                                formData.category
+                            }
+                            onChange={
+                                handleChange
+                            }
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                        >
+                            {CATEGORIES.map(
+                                (
+                                    category
+                                ) => (
+                                    <option
+                                        key={
+                                            category
+                                        }
+                                        value={
+                                            category
+                                        }
+                                    >
+                                        {
+                                            category
+                                        }
+                                    </option>
+                                )
+                            )}
+                        </select>
+                    </div>
                 </div>
 
-                {/* AMOUNT */}
-                <div>
-                    <label className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
-                        Amount
-                    </label>
+                {/* =================================================
+                    SPLIT
+                ================================================= */}
 
-                    <input
-                        type="number"
-                        name="amount"
-                        min="0.01"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                    />
-                </div>
+                {!editingExpense && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
 
-                {/* CATEGORY */}
-                <div>
-                    <label className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
-                        Category
-                    </label>
+                        <div className="mb-5">
 
-                    <select
-                        name="category"
-                        value={formData.category}
-                        onChange={handleChange}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                    >
-                        <option value="Food">Food</option>
-                        <option value="Travel">Travel</option>
-                        <option value="Transport">
-                            Transport
-                        </option>
-                        <option value="Entertainment">
-                            Entertainment
-                        </option>
-                        <option value="Shopping">
-                            Shopping
-                        </option>
-                        <option value="Bills">Bills</option>
-                        <option value="Health">Health</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
+                            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                                Split expense
+                            </h3>
 
-                {/* BUTTON */}
-                <div className="flex gap-3 md:col-span-3">
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                Choose how this expense should be divided among group members.
+                            </p>
+                        </div>
+
+                        {/* SPLIT TYPE */}
+
+                        <div>
+
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Split type
+                            </label>
+
+                            <select
+                                value={
+                                    splitType
+                                }
+                                onChange={
+                                    handleSplitTypeChange
+                                }
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                            >
+                                <option value="equal">
+                                    Equal split
+                                </option>
+
+                                <option value="exact">
+                                    Exact amounts
+                                </option>
+
+                                <option value="percentage">
+                                    Percentage
+                                </option>
+                            </select>
+                        </div>
+
+                        {/* =================================================
+                            EQUAL
+                        ================================================= */}
+
+                        {splitType ===
+                            SPLIT_TYPES.EQUAL && (
+                            <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+
+                                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                    Equal split
+                                </p>
+
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    The total expense will be divided equally among all group members.
+                                </p>
+
+                                <div className="mt-4 divide-y divide-slate-200 dark:divide-slate-800">
+
+                                    {splitPreview.map(
+                                        (
+                                            member,
+                                            index
+                                        ) => (
+                                            <div
+                                                key={`equal-${member.userId}-${index}`}
+                                                className="flex items-center justify-between py-3"
+                                            >
+
+                                                <span className="text-sm text-slate-700 dark:text-slate-300">
+                                                    {
+                                                        member.name
+                                                    }
+                                                </span>
+
+                                                <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                    ₹
+                                                    {Number(
+                                                        member.amount ||
+                                                        0
+                                                    ).toFixed(2)}
+                                                </span>
+
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* =================================================
+                            EXACT
+                        ================================================= */}
+
+                        {splitType ===
+                            SPLIT_TYPES.EXACT && (
+                            <div className="mt-5">
+
+                                <div className="mb-3 flex items-center justify-between">
+
+                                    <div>
+
+                                        <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                            Exact amounts
+                                        </p>
+
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Enter exactly how much each member owes.
+                                        </p>
+
+                                    </div>
+
+                                    <span
+                                        className={
+                                            Math.abs(
+                                                getExactTotal() -
+                                                Number(
+                                                    formData.amount ||
+                                                    0
+                                                )
+                                            ) <=
+                                            0.01
+                                                ? "text-sm font-semibold text-emerald-500"
+                                                : "text-sm font-semibold text-red-500"
+                                        }
+                                    >
+                                        ₹
+                                        {getExactTotal().toFixed(
+                                            2
+                                        )}
+                                        {" / ₹"}
+                                        {Number(
+                                            formData.amount ||
+                                            0
+                                        ).toFixed(
+                                            2
+                                        )}
+                                    </span>
+
+                                </div>
+
+                                <div className="space-y-3">
+
+                                    {(
+                                        group?.members ||
+                                        []
+                                    ).map(
+                                        (
+                                            member
+                                        ) => {
+
+                                            const split =
+                                                getMemberSplit(
+                                                    member._id
+                                                );
+
+                                            return (
+                                                <div
+                                                    key={`exact-${String(member._id)}`}
+                                                    className="flex items-center justify-between gap-4"
+                                                >
+
+                                                    <div>
+
+                                                        <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                                            {
+                                                                member.name
+                                                            }
+                                                        </p>
+
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                            {
+                                                                member.email
+                                                            }
+                                                        </p>
+
+                                                    </div>
+
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={
+                                                            split.amount ===
+                                                                ""
+                                                                ? ""
+                                                                : String(
+                                                                    split.amount
+                                                                )
+                                                        }
+                                                        onChange={(
+                                                            e
+                                                        ) =>
+                                                            handleSplitValueChange(
+                                                                member._id,
+                                                                "amount",
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        placeholder="0.00"
+                                                        className="w-36 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                                                    />
+
+                                                </div>
+                                            );
+                                        }
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* =================================================
+                            PERCENTAGE
+                        ================================================= */}
+
+                        {splitType ===
+                            SPLIT_TYPES.PERCENTAGE && (
+                            <div className="mt-5">
+
+                                <div className="mb-3 flex items-center justify-between">
+
+                                    <div>
+
+                                        <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                            Percentage split
+                                        </p>
+
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Percentages must add up to 100%.
+                                        </p>
+
+                                    </div>
+
+                                    <span
+                                        className={
+                                            Math.abs(
+                                                getPercentageTotal() -
+                                                100
+                                            ) <=
+                                            0.01
+                                                ? "text-sm font-semibold text-emerald-500"
+                                                : "text-sm font-semibold text-red-500"
+                                        }
+                                    >
+                                        {getPercentageTotal().toFixed(
+                                            2
+                                        )}
+                                        %
+                                    </span>
+
+                                </div>
+
+                                <div className="space-y-3">
+
+                                    {(
+                                        group?.members ||
+                                        []
+                                    ).map(
+                                        (
+                                            member
+                                        ) => {
+
+                                            const split =
+                                                getMemberSplit(
+                                                    member._id
+                                                );
+
+                                            const percentage =
+                                                Number(
+                                                    split.percentage ||
+                                                    0
+                                                );
+
+                                            const previewAmount =
+                                                Number(
+                                                    (
+                                                        Number(
+                                                            formData.amount ||
+                                                            0
+                                                        ) *
+                                                        (
+                                                            percentage /
+                                                            100
+                                                        )
+                                                    ).toFixed(
+                                                        2
+                                                    )
+                                                );
+
+                                            return (
+                                                <div
+                                                    key={`percentage-${String(member._id)}`}
+                                                    className="flex items-center justify-between gap-4"
+                                                >
+
+                                                    <div>
+
+                                                        <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                                            {
+                                                                member.name
+                                                            }
+                                                        </p>
+
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                            ₹
+                                                            {previewAmount.toFixed(
+                                                                2
+                                                            )}
+                                                        </p>
+
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            step="0.01"
+                                                            value={
+                                                                split.percentage ===
+                                                                    ""
+                                                                    ? ""
+                                                                    : String(
+                                                                        split.percentage
+                                                                    )
+                                                            }
+                                                            onChange={(
+                                                                e
+                                                            ) =>
+                                                                handleSplitValueChange(
+                                                                    member._id,
+                                                                    "percentage",
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                            placeholder="0"
+                                                            className="w-28 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                                                        />
+
+                                                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                                                            %
+                                                        </span>
+
+                                                    </div>
+
+                                                </div>
+                                            );
+                                        }
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* =================================================
+                    BUTTONS
+                ================================================= */}
+
+                <div className="flex gap-3">
+
                     <button
                         type="submit"
                         disabled={
@@ -387,7 +1463,9 @@ const Expenses = () => {
                     {editingExpense && (
                         <button
                             type="button"
-                            onClick={handleCancelEdit}
+                            onClick={
+                                handleCancelEdit
+                            }
                             className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                         >
                             Cancel
@@ -398,16 +1476,27 @@ const Expenses = () => {
         </div>
     );
 
+    // =====================================================
+    // RENDER
+    // =====================================================
+
     return (
         <DashboardLayout>
+
             <div className="mx-auto max-w-7xl">
 
-                {/* HEADER */}
+                {/* =================================================
+                    HEADER
+                ================================================= */}
+
                 <div className="mb-8">
+
                     <button
                         type="button"
                         onClick={() =>
-                            navigate(`/groups/${groupId}`)
+                            navigate(
+                                `/groups/${groupId}`
+                            )
                         }
                         className="mb-5 text-sm text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                     >
@@ -417,6 +1506,7 @@ const Expenses = () => {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
                         <div>
+
                             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                                 Expenses
                             </p>
@@ -429,15 +1519,22 @@ const Expenses = () => {
                             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                                 Track shared spending for this group.
                             </p>
+
                         </div>
 
                         <button
                             type="button"
                             onClick={() => {
-                                setEditingExpense(null);
+
+                                setEditingExpense(
+                                    null
+                                );
+
                                 resetForm();
+
                                 setShowForm(
-                                    (prev) => !prev
+                                    (prev) =>
+                                        !prev
                                 );
                             }}
                             className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
@@ -446,32 +1543,50 @@ const Expenses = () => {
                                 ? "Cancel"
                                 : "+ Add expense"}
                         </button>
+
                     </div>
                 </div>
 
-                {/* ERROR */}
+                {/* =================================================
+                    ERROR
+                ================================================= */}
+
                 {error && (
                     <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/30">
+
                         <p className="text-sm text-red-600 dark:text-red-400">
                             {error}
                         </p>
+
                     </div>
                 )}
 
-                {/* CREATE / EDIT FORM */}
-                {(showForm || editingExpense) &&
+                {/* =================================================
+                    FORM
+                ================================================= */}
+
+                {(showForm ||
+                    editingExpense) &&
                     renderForm()}
 
-                {/* LOADING */}
+                {/* =================================================
+                    LOADING
+                ================================================= */}
+
                 {loading && (
                     <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+
                         <p className="text-sm text-slate-500 dark:text-slate-400">
                             Loading expenses...
                         </p>
+
                     </div>
                 )}
 
-                {/* EMPTY */}
+                {/* =================================================
+                    EMPTY
+                ================================================= */}
+
                 {!loading &&
                     expenses.length === 0 && (
                         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
@@ -481,43 +1596,55 @@ const Expenses = () => {
                             </h2>
 
                             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                                Add your first shared expense
-                                to start tracking the group.
+                                Add your first shared expense to start tracking the group.
                             </p>
+
                         </div>
                     )}
 
-                {/* EXPENSE LIST */}
+                {/* =================================================
+                    EXPENSE LIST
+                ================================================= */}
+
                 {!loading &&
                     expenses.length > 0 && (
                         <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
 
-                            {/* LIST HEADER */}
                             <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+
                                 <div className="flex items-center justify-between">
+
                                     <h2 className="font-medium text-slate-900 dark:text-white">
                                         Expense history
                                     </h2>
 
                                     <span className="text-sm text-slate-500 dark:text-slate-400">
-                                        {expenses.length}{" "}
-                                        {expenses.length === 1
+                                        {
+                                            expenses.length
+                                        }{" "}
+                                        {expenses.length ===
+                                            1
                                             ? "expense"
                                             : "expenses"}
                                     </span>
+
                                 </div>
+
                             </div>
 
-                            {/* EXPENSES */}
                             <div className="divide-y divide-slate-200 dark:divide-slate-800">
+
                                 {expenses.map(
                                     (expense) => (
                                         <div
-                                            key={expense._id}
+                                            key={
+                                                expense._id
+                                            }
                                             className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between"
                                         >
-                                            {/* INFO */}
+
                                             <div className="min-w-0">
+
                                                 <p className="text-sm font-medium text-slate-900 dark:text-white">
                                                     {
                                                         expense.description
@@ -525,16 +1652,39 @@ const Expenses = () => {
                                                 </p>
 
                                                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+
                                                     {
                                                         expense.category
                                                     }
+
                                                     {" · "}
+
                                                     Paid by{" "}
-                                                    {expense
-                                                        .paidBy
-                                                        ?.name ||
-                                                        "Unknown"}
+
+                                                    {
+                                                        expense
+                                                            .paidBy
+                                                            ?.name ||
+                                                        "Unknown"
+                                                    }
+
                                                 </p>
+
+                                                {expense.splitType && (
+                                                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+
+                                                        Split:{" "}
+
+                                                        {expense.splitType ===
+                                                            "equal"
+                                                            ? "Equal"
+                                                            : expense.splitType ===
+                                                                "exact"
+                                                                ? "Exact"
+                                                                : "Percentage"}
+
+                                                    </p>
+                                                )}
 
                                                 {expense.createdAt && (
                                                     <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
@@ -545,9 +1695,9 @@ const Expenses = () => {
                                                         )}
                                                     </p>
                                                 )}
+
                                             </div>
 
-                                            {/* RIGHT SIDE */}
                                             <div className="flex items-center justify-between gap-4 sm:justify-end">
 
                                                 <p className="text-base font-semibold text-slate-900 dark:text-white">
@@ -561,7 +1711,6 @@ const Expenses = () => {
 
                                                 <div className="flex items-center gap-2">
 
-                                                    {/* EDIT */}
                                                     <button
                                                         type="button"
                                                         onClick={() =>
@@ -574,7 +1723,6 @@ const Expenses = () => {
                                                         Edit
                                                     </button>
 
-                                                    {/* DELETE */}
                                                     <button
                                                         type="button"
                                                         onClick={() =>
@@ -586,16 +1734,23 @@ const Expenses = () => {
                                                     >
                                                         Delete
                                                     </button>
+
                                                 </div>
+
                                             </div>
+
                                         </div>
                                     )
                                 )}
+
                             </div>
                         </div>
                     )}
 
-                {/* DELETE CONFIRMATION */}
+                {/* =================================================
+                    DELETE MODAL
+                ================================================= */}
+
                 {deletingExpenseId && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
 
@@ -606,9 +1761,7 @@ const Expenses = () => {
                             </h2>
 
                             <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                This expense will be permanently
-                                removed from this group. This action
-                                cannot be undone.
+                                This expense will be permanently removed from this group. This action cannot be undone.
                             </p>
 
                             <div className="mt-6 flex justify-end gap-3">
@@ -618,7 +1771,9 @@ const Expenses = () => {
                                     onClick={
                                         handleCancelDelete
                                     }
-                                    disabled={deleting}
+                                    disabled={
+                                        deleting
+                                    }
                                     className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                                 >
                                     Cancel
@@ -629,17 +1784,22 @@ const Expenses = () => {
                                     onClick={
                                         handleDeleteExpense
                                     }
-                                    disabled={deleting}
-                                    className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={
+                                        deleting
+                                    }
+                                    className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {deleting
                                         ? "Deleting..."
                                         : "Delete"}
                                 </button>
+
                             </div>
+
                         </div>
                     </div>
                 )}
+
             </div>
         </DashboardLayout>
     );
