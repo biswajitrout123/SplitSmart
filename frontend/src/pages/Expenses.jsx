@@ -62,6 +62,11 @@ const Expenses = () => {
     const [savingEdit, setSavingEdit] = useState(false);
 
     // =====================================================
+    // VIEW DETAILS STATE
+    // =====================================================
+    const [viewingExpense, setViewingExpense] = useState(null);
+
+    // =====================================================
     // DELETE STATE
     // =====================================================
 
@@ -1161,8 +1166,7 @@ const Expenses = () => {
                     SPLIT
                 ================================================= */}
 
-                {true && (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
 
                         <div className="mb-5">
 
@@ -1519,7 +1523,6 @@ const Expenses = () => {
                             </div>
                         )}
                     </div>
-                )}
 
                 {/* =================================================
                     BUTTONS
@@ -1800,6 +1803,18 @@ const Expenses = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() =>
+                                                            setViewingExpense(
+                                                                expense
+                                                            )
+                                                        }
+                                                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                                                    >
+                                                        Details
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
                                                             handleEditStart(
                                                                 expense
                                                             )
@@ -1832,6 +1847,125 @@ const Expenses = () => {
                             </div>
                         </div>
                     )}
+
+                {/* =================================================
+                    VIEW DETAILS MODAL
+                ================================================= */}
+
+                {viewingExpense && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 overflow-y-auto">
+                        <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900 my-auto max-h-full overflow-y-auto">
+                            
+                            <div className="mb-6 border-b border-slate-100 pb-4 dark:border-slate-800">
+                                <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                                    {viewingExpense.description}
+                                </h2>
+                                <p className="mt-1 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                                    <span>{new Date(viewingExpense.createdAt).toLocaleDateString("en-IN", {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric"
+                                    })}</span>
+                                    <span>·</span>
+                                    <span>₹{Number(viewingExpense.amount || 0).toFixed(2)}</span>
+                                </p>
+                            </div>
+
+                            <div className="mb-6 grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4 dark:bg-slate-950/50">
+                                <div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Category</p>
+                                    <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-white">
+                                        {viewingExpense.category === "Custom" && viewingExpense.customCategory
+                                            ? viewingExpense.customCategory
+                                            : viewingExpense.category || "Other"}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Paid By</p>
+                                    <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-white">
+                                        {viewingExpense.paidBy?.name || "Unknown"}
+                                    </p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Split Type</p>
+                                    <p className="mt-0.5 text-sm font-medium capitalize text-slate-900 dark:text-white">
+                                        {viewingExpense.splitType || "Equal"}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mb-6">
+                                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
+                                    Split Breakdown
+                                </h3>
+
+                                {(!viewingExpense.splits || viewingExpense.splits.length === 0) ? (
+                                    <p className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-900/20 dark:text-yellow-200">
+                                        Split details are unavailable for this legacy expense.
+                                    </p>
+                                ) : (
+                                    <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+                                        {viewingExpense.splits.map((split, idx) => {
+                                            const memberId = split.user?._id || split.user;
+                                            const member = group?.members?.find(m => m._id.toString() === memberId.toString());
+                                            const isPercentage = viewingExpense.splitType === "percentage";
+                                            const total = Number(viewingExpense.amount) || 0;
+                                            const amount = Number(split.amount) || 0;
+                                            let pctString = "";
+                                            if (isPercentage && total > 0) {
+                                                pctString = `${parseFloat(((amount / total) * 100).toFixed(2))}%`;
+                                            }
+
+                                            return (
+                                                <div key={idx} className="flex items-center justify-between p-3 sm:p-4">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                                                            {member?.name || "Unknown Member"}
+                                                        </p>
+                                                        {member?.email && (
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                                                {member.email}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="ml-4 text-right">
+                                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                            ₹{amount.toFixed(2)}
+                                                        </p>
+                                                        {isPercentage && (
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                                {pctString}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        <div className="flex items-center justify-between bg-slate-50 p-3 sm:p-4 dark:bg-slate-950/50 rounded-b-lg">
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                                Total
+                                            </p>
+                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                ₹{(viewingExpense.splits.reduce((sum, split) => sum + (Number(split.amount) || 0), 0)).toFixed(2)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewingExpense(null)}
+                                    className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                >
+                                    Close
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                )}
 
                 {/* =================================================
                     DELETE MODAL
