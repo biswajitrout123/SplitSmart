@@ -15,6 +15,7 @@ export const createExpense = async (req, res, next) => {
             description,
             amount,
             category = "Other",
+            customCategory,
             splitType = "equal",
             splits = []
         } = req.body;
@@ -41,6 +42,15 @@ export const createExpense = async (req, res, next) => {
                 "Expense amount must be greater than 0",
                 400
             );
+        }
+        
+        if (category === "Custom") {
+            if (!customCategory || !customCategory.trim()) {
+                throw new AppError(
+                    "Please provide a custom category name",
+                    400
+                );
+            }
         }
 
         // ---------------------------------------------
@@ -114,6 +124,7 @@ export const createExpense = async (req, res, next) => {
             description: description.trim(),
             amount: numericAmount,
             category,
+            customCategory: category === "Custom" ? customCategory.trim() : undefined,
             group: groupId,
             paidBy: req.user._id,
             splitType,
@@ -250,7 +261,7 @@ export const updateExpense = async (req, res, next) => {
         const { groupId, expenseId } = req.params;
 
         // 2. Get updated data
-        const { description, amount, category, splitType, splits } = req.body || {};
+        const { description, amount, category, customCategory, splitType, splits } = req.body || {};
 
         // 3. Find group
         const group = await Group.findById(groupId);
@@ -313,6 +324,17 @@ export const updateExpense = async (req, res, next) => {
         if (category !== undefined) {
             expense.category = category;
         }
+        
+        if (expense.category === "Custom") {
+            const finalCustomCategory = customCategory !== undefined ? customCategory : expense.customCategory;
+            if (!finalCustomCategory || !finalCustomCategory.trim()) {
+                throw new AppError("Please provide a custom category name", 400);
+            }
+            expense.customCategory = finalCustomCategory.trim();
+        } else {
+            expense.customCategory = undefined;
+        }
+
         
         if (splitType !== undefined) {
             const allowedSplitTypes = ["equal", "exact", "percentage"];
@@ -745,7 +767,10 @@ export const getExpenseAnalytics = async (req, res, next) => {
         const categoryMap = {};
 
         expenses.forEach((expense) => {
-            const category = expense.category || "Other";
+            let category = expense.category || "Other";
+            if (category === "Custom" && expense.customCategory) {
+                category = expense.customCategory;
+            }
 
             if (!categoryMap[category]) {
                 categoryMap[category] = 0;

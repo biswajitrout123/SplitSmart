@@ -25,7 +25,8 @@ const CATEGORIES = [
     "Shopping",
     "Bills",
     "Health",
-    "Other"
+    "Other",
+    "Custom"
 ];
 
 const Expenses = () => {
@@ -76,7 +77,8 @@ const Expenses = () => {
     const [formData, setFormData] = useState({
         description: "",
         amount: "",
-        category: "Other"
+        category: "Other",
+        customCategory: ""
     });
 
     // =====================================================
@@ -215,7 +217,8 @@ const Expenses = () => {
         setFormData({
             description: "",
             amount: "",
-            category: "Other"
+            category: "Other",
+            customCategory: ""
         });
 
         setSplitType(
@@ -625,6 +628,15 @@ const Expenses = () => {
             return;
         }
 
+        if (formData.category === "Custom") {
+            if (!formData.customCategory.trim()) {
+                setError(
+                    "Please enter a custom category name."
+                );
+                return;
+            }
+        }
+
         let splits;
 
         try {
@@ -653,6 +665,9 @@ const Expenses = () => {
 
                     category:
                         formData.category,
+
+                    customCategory:
+                        formData.category === "Custom" ? formData.customCategory.trim() : undefined,
 
                     splitType,
 
@@ -702,7 +717,11 @@ const Expenses = () => {
 
             category:
                 expense.category ||
-                "Other"
+                "Other",
+
+            customCategory:
+                expense.customCategory ||
+                ""
         });
 
         /*
@@ -727,6 +746,9 @@ const Expenses = () => {
                 expense.splits
             )
         ) {
+            const isPercentage = expense.splitType === SPLIT_TYPES.PERCENTAGE;
+            const totalExpenseAmount = Number(expense.amount) || 0;
+
             expense.splits.forEach(
                 (split) => {
                     const userId =
@@ -743,6 +765,11 @@ const Expenses = () => {
                     if (
                         values[key]
                     ) {
+                        let calculatedPercentage = "";
+                        if (isPercentage && totalExpenseAmount > 0) {
+                            calculatedPercentage = parseFloat(((Number(split.amount || 0) / totalExpenseAmount) * 100).toFixed(2));
+                        }
+
                         values[key] = {
                             ...values[key],
 
@@ -751,8 +778,7 @@ const Expenses = () => {
                                 "",
 
                             percentage:
-                                split.percentage ??
-                                ""
+                                split.percentage ?? calculatedPercentage
                         };
                     }
                 }
@@ -823,6 +849,15 @@ const Expenses = () => {
             return;
         }
 
+        if (formData.category === "Custom") {
+            if (!formData.customCategory.trim()) {
+                setError(
+                    "Please enter a custom category name."
+                );
+                return;
+            }
+        }
+
         let splits;
 
         try {
@@ -852,6 +887,9 @@ const Expenses = () => {
 
                     category:
                         formData.category,
+
+                    customCategory:
+                        formData.category === "Custom" ? formData.customCategory.trim() : undefined,
 
                     splitType,
 
@@ -1066,9 +1104,12 @@ const Expenses = () => {
                             value={
                                 formData.category
                             }
-                            onChange={
-                                handleChange
-                            }
+                            onChange={(e) => {
+                                handleChange(e);
+                                if (e.target.value !== "Custom") {
+                                    setFormData(prev => ({ ...prev, customCategory: "" }));
+                                }
+                            }}
                             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                         >
                             {CATEGORIES.map(
@@ -1091,6 +1132,29 @@ const Expenses = () => {
                             )}
                         </select>
                     </div>
+
+                    {/* CUSTOM CATEGORY INPUT */}
+                    {formData.category === "Custom" && (
+                        <div>
+                            <label className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
+                                Custom category
+                            </label>
+
+                            <input
+                                type="text"
+                                name="customCategory"
+                                value={
+                                    formData.customCategory
+                                }
+                                onChange={
+                                    handleChange
+                                }
+                                maxLength={50}
+                                placeholder="E.g. Project supplies..."
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* =================================================
@@ -1674,7 +1738,9 @@ const Expenses = () => {
                                                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
 
                                                     {
-                                                        expense.category
+                                                        expense.category === "Custom" && expense.customCategory
+                                                            ? expense.customCategory
+                                                            : expense.category
                                                     }
 
                                                     {" · "}

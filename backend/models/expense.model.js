@@ -47,9 +47,16 @@ const expenseSchema = new mongoose.Schema(
                 "Shopping",
                 "Bills",
                 "Health",
-                "Other"
+                "Other",
+                "Custom"
             ],
             default: "Other"
+        },
+        
+        customCategory: {
+            type: String,
+            trim: true,
+            maxLength: [50, "Custom category cannot exceed 50 characters"]
         },
 
         group: {

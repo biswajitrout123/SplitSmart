@@ -660,8 +660,7 @@ const GroupDetails = () => {
                                                         </p>
 
                                                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                            {expense.category ||
-                                                                "Other"}
+                                                            {expense.category === "Custom" && expense.customCategory ? expense.customCategory : (expense.category || "Other")}
                                                             {" · "}
                                                             Paid by{" "}
                                                             {expense.paidBy?.name ||

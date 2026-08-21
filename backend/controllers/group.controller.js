@@ -275,8 +275,10 @@ export const getGroupDashboard = async (req, res, next) => {
 
         expenses.forEach((expense) => {
 
-            const category =
-                expense.category || "Other";
+            let category = expense.category || "Other";
+            if (category === "Custom" && expense.customCategory) {
+                category = expense.customCategory;
+            }
 
             if (!categoryMap[category]) {
                 categoryMap[category] = 0;
@@ -361,6 +363,7 @@ export const getGroupDashboard = async (req, res, next) => {
                 description: expense.description,
                 amount: expense.amount,
                 category: expense.category,
+                customCategory: expense.customCategory,
                 paidBy: expense.paidBy,
                 createdAt: expense.createdAt,
                 updatedAt: expense.updatedAt
