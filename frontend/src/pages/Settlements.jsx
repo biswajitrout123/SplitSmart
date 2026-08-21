@@ -558,19 +558,19 @@ const Settlements = () => {
                                 <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
 
                                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                                        Your net settlement
+                                        Historical net settlement
                                     </p>
 
                                     {netSettlement > 0 ? (
                                         <p className="mt-2 text-2xl font-semibold text-emerald-500">
-                                            Receive ₹
+                                            Received ₹
                                             {Math.abs(
                                                 netSettlement
                                             ).toFixed(2)}
                                         </p>
                                     ) : netSettlement < 0 ? (
                                         <p className="mt-2 text-2xl font-semibold text-red-500">
-                                            Pay ₹
+                                            Paid ₹
                                             {Math.abs(
                                                 netSettlement
                                             ).toFixed(2)}
