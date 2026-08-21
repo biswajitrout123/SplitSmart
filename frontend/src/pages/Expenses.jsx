@@ -823,6 +823,19 @@ const Expenses = () => {
             return;
         }
 
+        let splits;
+
+        try {
+            splits =
+                buildSplitPayload();
+        } catch (err) {
+            setError(
+                err.message ||
+                "Invalid split details."
+            );
+            return;
+        }
+
         try {
             setSavingEdit(true);
             setError("");
@@ -835,7 +848,14 @@ const Expenses = () => {
                         formData.description.trim(),
 
                     amount:
-                        numericAmount
+                        numericAmount,
+
+                    category:
+                        formData.category,
+
+                    splitType,
+
+                    splits
                 }
             );
 
@@ -1077,7 +1097,7 @@ const Expenses = () => {
                     SPLIT
                 ================================================= */}
 
-                {!editingExpense && (
+                {true && (
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
 
                         <div className="mb-5">

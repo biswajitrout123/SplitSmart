@@ -250,7 +250,7 @@ export const updateExpense = async (req, res, next) => {
         const { groupId, expenseId } = req.params;
 
         // 2. Get updated data
-        const { description, amount } = req.body || {};
+        const { description, amount, category, splitType, splits } = req.body || {};
 
         // 3. Find group
         const group = await Group.findById(groupId);
@@ -293,20 +293,53 @@ export const updateExpense = async (req, res, next) => {
         }
 
         // 7. Validate amount if provided
-        if (amount !== undefined && amount <= 0) {
+        const numericAmount = amount !== undefined ? Number(amount) : undefined;
+        if (numericAmount !== undefined && (Number.isNaN(numericAmount) || numericAmount <= 0)) {
             throw new AppError(
                 "Amount must be greater than 0",
                 400
             );
         }
 
-        // 8. Update only provided fields
+        // 8. Update fields
         if (description !== undefined) {
-            expense.description = description;
+            expense.description = description.trim();
         }
 
-        if (amount !== undefined) {
-            expense.amount = amount;
+        if (numericAmount !== undefined) {
+            expense.amount = numericAmount;
+        }
+
+        if (category !== undefined) {
+            expense.category = category;
+        }
+        
+        if (splitType !== undefined) {
+            const allowedSplitTypes = ["equal", "exact", "percentage"];
+            if (!allowedSplitTypes.includes(splitType)) {
+                throw new AppError("Invalid split type", 400);
+            }
+            expense.splitType = splitType;
+        }
+        
+        // Always recalculate splits if splitType or splits or amount is provided, 
+        // to ensure it stays valid.
+        if (splits !== undefined || splitType !== undefined || numericAmount !== undefined) {
+            const currentSplits = splits !== undefined ? splits : expense.splits;
+            if (!Array.isArray(currentSplits)) {
+                throw new AppError("Splits must be an array", 400);
+            }
+            
+            const calculateAmount = numericAmount !== undefined ? numericAmount : expense.amount;
+            const calculateSplitType = splitType !== undefined ? splitType : expense.splitType;
+            
+            const calculatedSplits = calculateExpenseSplits({
+                amount: calculateAmount,
+                splitType: calculateSplitType,
+                splits: currentSplits,
+                memberIds: group.members
+            });
+            expense.splits = calculatedSplits;
         }
 
         // 9. Save updated expense
