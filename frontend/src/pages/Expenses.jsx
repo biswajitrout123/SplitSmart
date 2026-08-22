@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "../components/layouts/DashboardLayout";
 
@@ -74,6 +74,22 @@ const Expenses = () => {
         useState(null);
 
     const [deleting, setDeleting] = useState(false);
+
+    // =====================================================
+    // FILTER STATE
+    // =====================================================
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterCategory, setFilterCategory] = useState("");
+    const [filterPayer, setFilterPayer] = useState("");
+    const [filterSplitType, setFilterSplitType] = useState("");
+
+    const clearFilters = () => {
+        setSearchQuery("");
+        setFilterCategory("");
+        setFilterPayer("");
+        setFilterSplitType("");
+    };
 
     // =====================================================
     // EXPENSE FORM
@@ -198,6 +214,52 @@ const Expenses = () => {
             loadExpenses();
         }
     }, [groupId]);
+
+    // =====================================================
+    // FILTER LOGIC
+    // =====================================================
+
+    const uniqueCategories = useMemo(() => {
+        const cats = new Set();
+        expenses.forEach(e => {
+            if (e.category === "Custom" && e.customCategory) {
+                cats.add(e.customCategory);
+            } else if (e.category) {
+                cats.add(e.category);
+            }
+        });
+        return Array.from(cats).sort();
+    }, [expenses]);
+
+    const filteredExpenses = useMemo(() => {
+        return expenses.filter(expense => {
+            // Search Description (case-insensitive)
+            if (searchQuery && !expense.description?.toLowerCase().includes(searchQuery.toLowerCase())) {
+                return false;
+            }
+            // Filter Category
+            if (filterCategory) {
+                const actualCategory = expense.category === "Custom" && expense.customCategory 
+                    ? expense.customCategory 
+                    : expense.category || "Other";
+                if (actualCategory !== filterCategory) {
+                     return false;
+                }
+            }
+            // Filter Payer
+            if (filterPayer) {
+                const payerId = expense.paidBy?._id?.toString() || expense.paidBy?.toString();
+                if (payerId !== filterPayer) {
+                    return false;
+                }
+            }
+            // Filter Split Type
+            if (filterSplitType && (expense.splitType || "equal") !== filterSplitType) {
+                return false;
+            }
+            return true;
+        });
+    }, [expenses, searchQuery, filterCategory, filterPayer, filterSplitType]);
 
     // =====================================================
     // FORM CHANGE
@@ -1690,11 +1752,100 @@ const Expenses = () => {
                     )}
 
                 {/* =================================================
+                    FILTERS
+                ================================================= */}
+
+                {!loading && expenses.length > 0 && (
+                    <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                            <div className="lg:col-span-2">
+                                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Search</label>
+                                <input
+                                    type="text"
+                                    placeholder="Search by description..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Category</label>
+                                <select
+                                    value={filterCategory}
+                                    onChange={(e) => setFilterCategory(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                >
+                                    <option value="">All categories</option>
+                                    {uniqueCategories.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Paid by</label>
+                                <select
+                                    value={filterPayer}
+                                    onChange={(e) => setFilterPayer(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                >
+                                    <option value="">Anyone</option>
+                                    {group?.members?.map(m => (
+                                        <option key={m._id} value={m._id}>{m.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Split type</label>
+                                <select
+                                    value={filterSplitType}
+                                    onChange={(e) => setFilterSplitType(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                >
+                                    <option value="">All types</option>
+                                    <option value="equal">Equal</option>
+                                    <option value="exact">Exact</option>
+                                    <option value="percentage">Percentage</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {(searchQuery || filterCategory || filterPayer || filterSplitType) && (
+                            <div className="mt-4 flex justify-end">
+                                <button
+                                    onClick={clearFilters}
+                                    className="text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                >
+                                    Clear filters
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* =================================================
+                    EMPTY FILTER RESULTS
+                ================================================= */}
+
+                {!loading && expenses.length > 0 && filteredExpenses.length === 0 && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
+                        <h2 className="text-lg font-medium text-slate-900 dark:text-white">
+                            No expenses match your filters
+                        </h2>
+                        <button
+                            onClick={clearFilters}
+                            className="mt-3 text-sm font-medium text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                        >
+                            Clear all filters
+                        </button>
+                    </div>
+                )}
+
+                {/* =================================================
                     EXPENSE LIST
                 ================================================= */}
 
                 {!loading &&
-                    expenses.length > 0 && (
+                    filteredExpenses.length > 0 && (
                         <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
 
                             <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
@@ -1706,13 +1857,10 @@ const Expenses = () => {
                                     </h2>
 
                                     <span className="text-sm text-slate-500 dark:text-slate-400">
-                                        {
-                                            expenses.length
-                                        }{" "}
-                                        {expenses.length ===
-                                            1
-                                            ? "expense"
-                                            : "expenses"}
+                                        {filteredExpenses.length !== expenses.length
+                                            ? `Showing ${filteredExpenses.length} of ${expenses.length} expenses`
+                                            : `${expenses.length} ${expenses.length === 1 ? "expense" : "expenses"}`
+                                        }
                                     </span>
 
                                 </div>
@@ -1721,7 +1869,7 @@ const Expenses = () => {
 
                             <div className="divide-y divide-slate-200 dark:divide-slate-800">
 
-                                {expenses.map(
+                                {filteredExpenses.map(
                                     (expense) => (
                                         <div
                                             key={
