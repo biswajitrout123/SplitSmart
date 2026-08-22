@@ -9,6 +9,7 @@ import {
     getGroupDashboard,
     addMember
 } from "../services/group.service";
+import { getSimplifiedSettlements } from "../services/settlement.service";
 
 const GroupDetails = () => {
     const { groupId } = useParams();
@@ -17,6 +18,8 @@ const GroupDetails = () => {
     const { user } = useAuth();
 
     const [dashboard, setDashboard] = useState(null);
+    const [simplifiedSettlements, setSimplifiedSettlements] = useState([]);
+    const [viewMode, setViewMode] = useState("raw");
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -41,9 +44,13 @@ const GroupDetails = () => {
             setLoading(true);
             setError("");
 
-            const data = await getGroupDashboard(groupId);
+            const [data, simplifiedData] = await Promise.all([
+                getGroupDashboard(groupId),
+                getSimplifiedSettlements(groupId)
+            ]);
 
             setDashboard(data);
+            setSimplifiedSettlements(simplifiedData?.settlements || []);
         } catch (err) {
             console.error(err);
 
@@ -472,71 +479,95 @@ const GroupDetails = () => {
                                 {/* Balances */}
                                 <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
 
-                                    <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                                    <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
                                         <h2 className="font-medium text-slate-900 dark:text-white">
                                             Group balances
                                         </h2>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewMode("raw")}
+                                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${viewMode === "raw" ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"}`}
+                                            >
+                                                Net Balances
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewMode("optimized")}
+                                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${viewMode === "optimized" ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"}`}
+                                            >
+                                                Optimized Repayments
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="divide-y divide-slate-200 dark:divide-slate-800">
 
-                                        {dashboard.balances?.length === 0 ? (
-                                            <p className="px-5 py-5 text-sm text-slate-500 dark:text-slate-400">
-                                                No balance data available.
-                                            </p>
+                                        {viewMode === "raw" ? (
+                                            dashboard.balances?.length === 0 ? (
+                                                <p className="px-5 py-5 text-sm text-slate-500 dark:text-slate-400">
+                                                    No balance data available.
+                                                </p>
+                                            ) : (
+                                                dashboard.balances.map(
+                                                    (member) => (
+                                                        <div
+                                                            key={member.userId}
+                                                            className="flex items-center justify-between px-5 py-4"
+                                                        >
+                                                            <div>
+                                                                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                                                    {member.name}
+                                                                </p>
+                                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                                    Paid ₹{Number(member.paid || 0).toFixed(2)}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                {member.balance > 0 && (
+                                                                    <p className="text-sm font-semibold text-emerald-500">
+                                                                        +₹{Number(member.balance).toFixed(2)}
+                                                                    </p>
+                                                                )}
+                                                                {member.balance < 0 && (
+                                                                    <p className="text-sm font-semibold text-red-500">
+                                                                        -₹{Math.abs(Number(member.balance)).toFixed(2)}
+                                                                    </p>
+                                                                )}
+                                                                {Number(member.balance) === 0 && (
+                                                                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                                        Settled
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                )
+                                            )
                                         ) : (
-                                            dashboard.balances.map(
-                                                (member) => (
+                                            simplifiedSettlements?.length === 0 ? (
+                                                <p className="px-5 py-5 text-sm text-slate-500 dark:text-slate-400">
+                                                    Everyone is settled up!
+                                                </p>
+                                            ) : (
+                                                simplifiedSettlements.map((settlement, idx) => (
                                                     <div
-                                                        key={member.userId}
+                                                        key={`opt-${idx}`}
                                                         className="flex items-center justify-between px-5 py-4"
                                                     >
-
                                                         <div>
                                                             <p className="text-sm font-medium text-slate-900 dark:text-white">
-                                                                {member.name}
+                                                                {settlement.from?.name || "Unknown"} → {settlement.to?.name || "Unknown"}
                                                             </p>
-
                                                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                                Paid ₹
-                                                                {Number(
-                                                                    member.paid || 0
-                                                                ).toFixed(2)}
+                                                                Suggested payment
                                                             </p>
                                                         </div>
-
-                                                        <div className="text-right">
-
-                                                            {member.balance > 0 && (
-                                                                <p className="text-sm font-semibold text-emerald-500">
-                                                                    +₹
-                                                                    {Number(
-                                                                        member.balance
-                                                                    ).toFixed(2)}
-                                                                </p>
-                                                            )}
-
-                                                            {member.balance < 0 && (
-                                                                <p className="text-sm font-semibold text-red-500">
-                                                                    -₹
-                                                                    {Math.abs(
-                                                                        Number(
-                                                                            member.balance
-                                                                        )
-                                                                    ).toFixed(2)}
-                                                                </p>
-                                                            )}
-
-                                                            {Number(member.balance) === 0 && (
-                                                                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                                                    Settled
-                                                                </p>
-                                                            )}
-
-                                                        </div>
-
+                                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                            ₹{Number(settlement.amount || 0).toFixed(2)}
+                                                        </p>
                                                     </div>
-                                                )
+                                                ))
                                             )
                                         )}
 
