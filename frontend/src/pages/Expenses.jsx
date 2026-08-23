@@ -1038,6 +1038,41 @@ const Expenses = () => {
             }
         };
 
+    const handleExportCSV = () => {
+        if (!filteredExpenses || filteredExpenses.length === 0) {
+            return;
+        }
+
+        const headers = ["Date", "Description", "Category", "Amount", "Paid By", "Split Type"];
+        
+        const rows = filteredExpenses.map(expense => {
+            const date = new Date(expense.date || expense.createdAt).toLocaleDateString();
+            
+            const descriptionStr = expense.description || "";
+            const description = `"${descriptionStr.replace(/"/g, '""')}"`;
+            
+            const category = expense.category === "Custom" && expense.customCategory ? expense.customCategory : (expense.category || "Other");
+            const amount = Number(expense.amount || 0).toFixed(2);
+            
+            const paidBy = expense.paidBy?.name || "Unknown";
+            const splitType = expense.splitType || "equal";
+            
+            return [date, description, `"${category}"`, amount, `"${paidBy}"`, splitType].join(",");
+        });
+        
+        const csvContent = [headers.join(","), ...rows].join("\n");
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${group?.name || 'group'}_expenses.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     // =====================================================
     // SPLIT TOTALS
     // =====================================================
@@ -1671,27 +1706,27 @@ const Expenses = () => {
 
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => {
-
-                                setEditingExpense(
-                                    null
-                                );
-
-                                resetForm();
-
-                                setShowForm(
-                                    (prev) =>
-                                        !prev
-                                );
-                            }}
-                            className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-                        >
-                            {showForm
-                                ? "Cancel"
-                                : "+ Add expense"}
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={handleExportCSV}
+                                disabled={!filteredExpenses || filteredExpenses.length === 0}
+                                className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                            >
+                                Export CSV
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEditingExpense(null);
+                                    resetForm();
+                                    setShowForm((prev) => !prev);
+                                }}
+                                className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                            >
+                                {showForm ? "Cancel" : "+ Add expense"}
+                            </button>
+                        </div>
 
                     </div>
                 </div>
