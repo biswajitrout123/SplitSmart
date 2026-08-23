@@ -4,7 +4,7 @@ import Settlement from "../models/settlement.model.js";
 import AppError from "../utils/AppError.js";
 import { calculateExpenseSplits } from "../utils/expenseSplit.util.js";
 import { calculateGroupBalances } from "../utils/groupBalance.util.js";
-
+import { logActivity } from "../services/activity.service.js";
 
 // CREATE EXPENSE
 export const createExpense = async (req, res, next) => {
@@ -148,6 +148,16 @@ export const createExpense = async (req, res, next) => {
         // ---------------------------------------------
         // SUCCESS RESPONSE
         // ---------------------------------------------
+        logActivity({
+            groupId: group._id,
+            type: "expense_added",
+            message: `${req.user.name} added '${expense.description}' — ₹${expense.amount.toFixed(2)}`,
+            actorId: req.user._id,
+            actorName: req.user.name,
+            referenceId: expense._id,
+            amount: expense.amount
+        });
+
         return res.status(201).json({
             success: true,
             message: "Expense created successfully",
@@ -368,6 +378,16 @@ export const updateExpense = async (req, res, next) => {
         await expense.save();
 
         // 10. Return response
+        logActivity({
+            groupId: group._id,
+            type: "expense_edited",
+            message: `${req.user.name} edited '${expense.description}' — ₹${expense.amount.toFixed(2)}`,
+            actorId: req.user._id,
+            actorName: req.user.name,
+            referenceId: expense._id,
+            amount: expense.amount
+        });
+
         return res.status(200).json({
             success: true,
             message: "Expense updated successfully",
@@ -430,6 +450,16 @@ export const deleteExpense = async (req, res, next) => {
         await Expense.findByIdAndDelete(expenseId);
 
         // 7. Return success response
+        logActivity({
+            groupId: group._id,
+            type: "expense_deleted",
+            message: `${req.user.name} deleted expense '${expense.description}'`,
+            actorId: req.user._id,
+            actorName: req.user.name,
+            referenceId: expense._id,
+            amount: expense.amount
+        });
+
         return res.status(200).json({
             success: true,
             message: "Expense deleted successfully"
@@ -861,6 +891,7 @@ export const getExpenseAnalytics = async (req, res, next) => {
 export const getMonthlyExpenseTrends = async (req, res, next) => {
     try {
         const { groupId } = req.params;
+        const { startDate, endDate } = req.query;
 
         // 1. Find group
         const group = await Group.findById(groupId);
@@ -882,12 +913,38 @@ export const getMonthlyExpenseTrends = async (req, res, next) => {
             );
         }
 
-        // 3. Get monthly spending using MongoDB aggregation
+        // 3. Build match stage
+        const matchStage = {
+            group: group._id
+        };
+
+        if (startDate) {
+            const start = new Date(startDate);
+            if (isNaN(start.getTime())) {
+                throw new AppError("Invalid startDate. Use YYYY-MM-DD", 400);
+            }
+            start.setHours(0, 0, 0, 0);
+            matchStage.createdAt = { $gte: start };
+        }
+
+        if (endDate) {
+            const end = new Date(endDate);
+            if (isNaN(end.getTime())) {
+                throw new AppError("Invalid endDate. Use YYYY-MM-DD", 400);
+            }
+            end.setHours(23, 59, 59, 999);
+            
+            if (matchStage.createdAt) {
+                matchStage.createdAt.$lte = end;
+            } else {
+                matchStage.createdAt = { $lte: end };
+            }
+        }
+
+        // 4. Get monthly spending using MongoDB aggregation
         const monthlyData = await Expense.aggregate([
             {
-                $match: {
-                    group: group._id
-                }
+                $match: matchStage
             },
 
             {

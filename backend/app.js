@@ -6,6 +6,7 @@ import authRouter from "./routes/auth.route.js";
 import groupRoutes from "./routes/group.route.js";
 import expenseRoutes from "./routes/expense.route.js";
 import settlementRoutes from "./routes/settlement.route.js";
+import activityRoutes from "./routes/activity.route.js";
 
 import { errorMiddleware } from "./middleware/error.middleware.js";
 
@@ -34,6 +35,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/groups", groupRoutes);
 app.use("/api/groups", expenseRoutes);
 app.use("/api/groups", settlementRoutes);
+app.use("/api/groups", activityRoutes);
 
 // ================================
 // HEALTH CHECK

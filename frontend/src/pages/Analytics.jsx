@@ -36,7 +36,7 @@ const Analytics = () => {
 
             const [analyticsData, monthlyData] = await Promise.all([
                 getExpenseAnalytics(groupId, filters),
-                getMonthlyExpenseTrends(groupId)
+                getMonthlyExpenseTrends(groupId, filters)
             ]);
 
             setAnalytics(analyticsData);

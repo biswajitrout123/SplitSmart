@@ -284,6 +284,18 @@ const GroupDetails = () => {
                                         Analytics
                                     </button>
 
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            navigate(
+                                                `/groups/${groupId}/activity`
+                                            )
+                                        }
+                                        className="border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                                    >
+                                        Activity
+                                    </button>
+
                                 </nav>
                             </div>
 

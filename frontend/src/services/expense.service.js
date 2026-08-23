@@ -63,9 +63,10 @@ export const getExpenseAnalytics = async (
     return response.data;
 };
 
-export const getMonthlyExpenseTrends = async (groupId) => {
+export const getMonthlyExpenseTrends = async (groupId, params = {}) => {
     const response = await api.get(
-        `/groups/${groupId}/expenses/monthly-trends`
+        `/groups/${groupId}/expenses/monthly-trends`,
+        { params }
     );
 
     return response.data;

@@ -3,7 +3,8 @@ import Group from "../models/group.model.js";
 import Expense from "../models/expense.model.js";
 import AppError from "../utils/AppError.js";
 import { calculateGroupBalances } from "../utils/groupBalance.util.js";
-
+import { logActivity } from "../services/activity.service.js";
+import User from "../models/user.model.js";
 
 // CREATE SETTLEMENT
 export const createSettlement = async (req, res, next) => {
@@ -149,6 +150,22 @@ export const createSettlement = async (req, res, next) => {
         });
 
         // 24. Return success
+        
+        // Safely get the receiver's name directly from the DB so we don't rely on unpopulated balance objects
+        const receiverUser = await User.findById(to).select("name");
+        const actualReceiverName = receiverUser ? receiverUser.name : "a member";
+
+        logActivity({
+            groupId: group._id,
+            type: "settlement_recorded",
+            message: `${req.user.name} paid ${actualReceiverName} — ₹${amount.toFixed(2)}`,
+            actorId: req.user._id,
+            actorName: req.user.name,
+            referenceId: settlement._id,
+            amount: amount,
+            receiverName: actualReceiverName
+        });
+
         return res.status(201).json({
             success: true,
             message: "Settlement created successfully",
@@ -235,7 +252,7 @@ export const deleteSettlement = async (req, res, next) => {
         const settlement = await Settlement.findOne({
             _id: settlementId,
             group: groupId
-        });
+        }).populate("from to", "name");
 
         if (!settlement) {
             throw new AppError(
@@ -248,6 +265,21 @@ export const deleteSettlement = async (req, res, next) => {
         await Settlement.findByIdAndDelete(settlementId);
 
         // 5. Return success
+        const otherPersonName = settlement.from._id.toString() === req.user._id.toString() 
+            ? settlement.to?.name 
+            : settlement.from?.name;
+
+        logActivity({
+            groupId: group._id,
+            type: "settlement_deleted",
+            message: `${req.user.name} deleted settlement with ${otherPersonName || "a member"}`,
+            actorId: req.user._id,
+            actorName: req.user.name,
+            referenceId: settlement._id,
+            amount: settlement.amount,
+            receiverName: settlement.to?.name
+        });
+
         return res.status(200).json({
             success: true,
             message: "Settlement deleted successfully"

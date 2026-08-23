@@ -12,6 +12,7 @@ import GroupDetails from "./pages/GroupDetails";
 import Expenses from "./pages/Expenses";
 import Settlements from "./pages/Settlements";
 import Analytics from "./pages/Analytics";
+import GroupActivity from "./pages/GroupActivity";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -119,6 +120,16 @@ function App() {
                         />
 
                         <Route path="/groups/:groupId/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                        
+                        {/* Group Activity */}
+                        <Route
+                            path="/groups/:groupId/activity"
+                            element={
+                                <ProtectedRoute>
+                                    <GroupActivity />
+                                </ProtectedRoute>
+                            }
+                        />
 
                     </Routes>
                 </BrowserRouter>
