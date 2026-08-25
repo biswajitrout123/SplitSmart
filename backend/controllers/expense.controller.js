@@ -385,7 +385,8 @@ export const updateExpense = async (req, res, next) => {
             actorId: req.user._id,
             actorName: req.user.name,
             referenceId: expense._id,
-            amount: expense.amount
+            amount: expense.amount,
+            involvedUsers: expense.splits.map(s => s.user)
         });
 
         return res.status(200).json({

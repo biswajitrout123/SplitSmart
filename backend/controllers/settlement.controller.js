@@ -163,7 +163,8 @@ export const createSettlement = async (req, res, next) => {
             actorName: req.user.name,
             referenceId: settlement._id,
             amount: amount,
-            receiverName: actualReceiverName
+            receiverName: actualReceiverName,
+            receiverId: to
         });
 
         return res.status(201).json({

@@ -9,6 +9,7 @@ import {
     useParams
 } from "react-router-dom";
 
+import { sendDebtReminder } from "../services/notification.service";
 import DashboardLayout from "../components/layouts/DashboardLayout";
 import { useAuth } from "../context/AuthContext";
 
@@ -426,6 +427,19 @@ const Settlements = () => {
                 year: "numeric"
             }
         );
+    };
+
+    // -----------------------------------------
+    // REMIND BUTTON
+    // -----------------------------------------
+    const handleRemind = async (debtorId) => {
+        try {
+            await sendDebtReminder(groupId, debtorId);
+            alert("Reminder sent successfully!");
+        } catch (err) {
+            console.error("Failed to send reminder:", err);
+            alert(err.response?.data?.message || "Failed to send reminder");
+        }
     };
 
     // -----------------------------------------
@@ -872,12 +886,24 @@ const Settlements = () => {
 
                                                     </div>
 
-                                                    <p className="text-base font-semibold text-slate-900 dark:text-white">
-                                                        ₹
-                                                        {Number(
-                                                            settlement?.amount || 0
-                                                        ).toFixed(2)}
-                                                    </p>
+                                                    <div className="flex items-center gap-4">
+                                                        <p className="text-base font-semibold text-slate-900 dark:text-white">
+                                                            ₹
+                                                            {Number(
+                                                                settlement?.amount || 0
+                                                            ).toFixed(2)}
+                                                        </p>
+
+                                                        {user?._id === toId && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemind(fromId)}
+                                                                className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20"
+                                                            >
+                                                                Remind
+                                                            </button>
+                                                        )}
+                                                    </div>
 
                                                 </div>
                                             );

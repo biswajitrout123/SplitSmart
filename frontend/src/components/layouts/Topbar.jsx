@@ -1,5 +1,6 @@
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import NotificationsDropdown from "../notifications/NotificationsDropdown";
 
 const Topbar = ({ setSidebarOpen }) => {
     const { user } = useAuth();
@@ -28,6 +29,7 @@ const Topbar = ({ setSidebarOpen }) => {
 
             {/* Right side */}
             <div className="flex items-center gap-2 sm:gap-3">
+                <NotificationsDropdown />
 
                 {/* Theme toggle */}
                 <button

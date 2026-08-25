@@ -1,7 +1,8 @@
 import express from 'express'
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
-import { addMember, createGroup, getGroupById, getGroupDashboard, getMyGroups } from '../controllers/group.controller.js'
+import { addMember, createGroup, getGroupById, getGroupDashboard, getMyGroups } from '../controllers/group.controller.js';
+import { sendDebtReminder } from '../controllers/notification.controller.js';
 
 const router = express.Router();
 
@@ -11,5 +12,6 @@ router.get('/:groupId', authMiddleware, getGroupById);
 router.post('/:groupId/members', authMiddleware, addMember);
 
 router.get('/:groupId/dashboard', authMiddleware, getGroupDashboard);
+router.post('/:groupId/remind', authMiddleware, sendDebtReminder);
 
 export default router;
