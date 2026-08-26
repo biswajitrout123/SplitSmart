@@ -205,7 +205,7 @@ const Expenses = () => {
                 "Failed to load expenses"
             );
         } finally {
-            if (showLoading) setLoading(false);
+            setLoading(false);
         }
     }, [groupId, createInitialSplitValues]);
 

@@ -59,7 +59,7 @@ const GroupDetails = () => {
                 "Failed to load group dashboard"
             );
         } finally {
-            if (showLoading) setLoading(false);
+            setLoading(false);
         }
     }, [groupId]);
 

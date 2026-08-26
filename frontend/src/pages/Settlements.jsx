@@ -142,7 +142,7 @@ const Settlements = () => {
                 "Failed to load settlements"
             );
         } finally {
-            if (showLoading) setLoading(false);
+            setLoading(false);
         }
     }, [groupId]);
 

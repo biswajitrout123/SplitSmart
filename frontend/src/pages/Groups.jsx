@@ -32,7 +32,7 @@ const Groups = () => {
                 "Failed to load groups"
             );
         } finally {
-            if (showLoading) setLoading(false);
+            setLoading(false);
         }
     }, []);
 

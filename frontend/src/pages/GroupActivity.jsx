@@ -33,7 +33,7 @@ const GroupActivity = () => {
             console.error(err);
             setError("Failed to load activity feed");
         } finally {
-            if (pageNum === 1 && showLoading) setLoading(false);
+            if (pageNum === 1) setLoading(false);
             else if (pageNum > 1) setLoadingMore(false);
         }
     }, [groupId]);
