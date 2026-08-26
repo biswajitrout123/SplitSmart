@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/layouts/DashboardLayout";
 import GroupCard from "../components/groups/GroupCard";
@@ -16,9 +16,9 @@ const Groups = () => {
     const [error, setError] = useState("");
     const [showModal, setShowModal] = useState(false);
 
-    const loadGroups = async () => {
+    const loadGroups = useCallback(async (showLoading = true) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             setError("");
 
             const data = await getMyGroups();
@@ -32,13 +32,16 @@ const Groups = () => {
                 "Failed to load groups"
             );
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        loadGroups();
-    }, []);
+        const init = async () => {
+            await loadGroups(false);
+        };
+        init();
+    }, [loadGroups]);
 
     const handleCreateGroup = async (formData) => {
         try {
@@ -54,7 +57,8 @@ const Groups = () => {
         } catch (err) {
             throw new Error(
                 err.response?.data?.message ||
-                "Failed to create group"
+                "Failed to create group",
+                { cause: err }
             );
         }
     };

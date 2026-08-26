@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUserNotifications, markAsRead, markAllAsRead } from "../../services/notification.service";
 
@@ -10,7 +10,8 @@ const NotificationsDropdown = () => {
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
+        await Promise.resolve();
         try {
             setLoading(true);
             const data = await getUserNotifications();
@@ -21,11 +22,14 @@ const NotificationsDropdown = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        fetchNotifications();
-    }, []);
+        const load = async () => {
+            await fetchNotifications();
+        };
+        load();
+    }, [fetchNotifications]);
 
     // Close dropdown on click outside
     useEffect(() => {

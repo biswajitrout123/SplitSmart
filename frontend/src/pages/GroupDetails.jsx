@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import DashboardLayout from "../components/layouts/DashboardLayout";
@@ -39,9 +39,9 @@ const GroupDetails = () => {
     }, [groupId]);
 
     // Load group dashboard
-    const loadGroupDashboard = async () => {
+    const loadGroupDashboard = useCallback(async (showLoading = true) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             setError("");
 
             const [data, simplifiedData] = await Promise.all([
@@ -59,15 +59,18 @@ const GroupDetails = () => {
                 "Failed to load group dashboard"
             );
         } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (groupId) {
-            loadGroupDashboard();
+            if (showLoading) setLoading(false);
         }
     }, [groupId]);
+
+    useEffect(() => {
+        const init = async () => {
+            if (groupId) {
+                await loadGroupDashboard(false);
+            }
+        };
+        init();
+    }, [groupId, loadGroupDashboard]);
 
     // Balance text
     const getBalanceText = (balance) => {

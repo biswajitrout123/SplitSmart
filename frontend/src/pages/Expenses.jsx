@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "../components/layouts/DashboardLayout";
 
@@ -153,7 +153,7 @@ const Expenses = () => {
     // CREATE INITIAL SPLIT VALUES
     // =====================================================
 
-    const createInitialSplitValues = (members = []) => {
+    const createInitialSplitValues = useCallback((members = []) => {
         const initialValues = {};
 
         members.forEach((member) => {
@@ -167,15 +167,15 @@ const Expenses = () => {
         });
 
         return initialValues;
-    };
+    }, []);
 
     // =====================================================
     // LOAD GROUP + EXPENSES
     // =====================================================
 
-    const loadExpenses = async () => {
+    const loadExpenses = useCallback(async (showLoading = true) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             setError("");
 
             const [groupData, expenseData] =
@@ -205,15 +205,18 @@ const Expenses = () => {
                 "Failed to load expenses"
             );
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
-    };
+    }, [groupId, createInitialSplitValues]);
 
     useEffect(() => {
-        if (groupId) {
-            loadExpenses();
-        }
-    }, [groupId]);
+        const init = async () => {
+            if (groupId) {
+                await loadExpenses(false);
+            }
+        };
+        init();
+    }, [groupId, loadExpenses]);
 
     // =====================================================
     // FILTER LOGIC

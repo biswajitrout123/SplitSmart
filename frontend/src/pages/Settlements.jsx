@@ -94,13 +94,13 @@ const Settlements = () => {
     // LOAD ALL SETTLEMENT DATA
     // -----------------------------------------
 
-    const loadSettlements = useCallback(async () => {
+    const loadSettlements = useCallback(async (showLoading = true) => {
         if (!groupId) {
             return;
         }
 
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             setError("");
 
             const [
@@ -142,7 +142,7 @@ const Settlements = () => {
                 "Failed to load settlements"
             );
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     }, [groupId]);
 
@@ -151,7 +151,10 @@ const Settlements = () => {
     // -----------------------------------------
 
     useEffect(() => {
-        loadSettlements();
+        const init = async () => {
+            await loadSettlements(false);
+        };
+        init();
     }, [loadSettlements]);
 
     // -----------------------------------------

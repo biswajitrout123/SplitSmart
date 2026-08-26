@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/layouts/DashboardLayout";
 import { getGroupActivity } from "../services/activity.service";
@@ -14,10 +14,10 @@ const GroupActivity = () => {
     const [hasMore, setHasMore] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
 
-    const loadActivities = async (pageNum = 1) => {
+    const loadActivities = useCallback(async (pageNum = 1, showLoading = true) => {
         try {
-            if (pageNum === 1) setLoading(true);
-            else setLoadingMore(true);
+            if (pageNum === 1 && showLoading) setLoading(true);
+            else if (pageNum > 1) setLoadingMore(true);
             setError("");
 
             const data = await getGroupActivity(groupId, pageNum, 50);
@@ -31,16 +31,19 @@ const GroupActivity = () => {
             setHasMore(data.hasMore);
         } catch (err) {
             console.error(err);
-            setError(err.response?.data?.message || "Failed to load activity feed");
+            setError("Failed to load activity feed");
         } finally {
-            setLoading(false);
-            setLoadingMore(false);
+            if (pageNum === 1 && showLoading) setLoading(false);
+            else if (pageNum > 1) setLoadingMore(false);
         }
-    };
+    }, [groupId]);
 
     useEffect(() => {
-        loadActivities(1);
-    }, [groupId]);
+        const init = async () => {
+            await loadActivities(1, false);
+        };
+        init();
+    }, [groupId, loadActivities]);
 
     const handleLoadMore = () => {
         const nextPage = page + 1;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import DashboardLayout from "../components/layouts/DashboardLayout";
@@ -29,7 +29,7 @@ const Analytics = () => {
     // ---------------------------------------------------
     // LOAD ANALYTICS
     // ---------------------------------------------------
-    const loadAnalytics = async (filters = {}) => {
+    const loadAnalytics = useCallback(async (filters = {}) => {
         try {
             setFiltering(true);
             setError("");
@@ -53,7 +53,7 @@ const Analytics = () => {
         } finally {
             setFiltering(false);
         }
-    };
+    }, [groupId]);
 
     // ---------------------------------------------------
     // INITIAL LOAD
@@ -84,7 +84,7 @@ const Analytics = () => {
         if (groupId) {
             loadPage();
         }
-    }, [groupId]);
+    }, [groupId, loadAnalytics]);
 
     // ---------------------------------------------------
     // APPLY DATE FILTER
