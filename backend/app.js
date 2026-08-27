@@ -3,7 +3,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import mongoSanitize from "express-mongo-sanitize";
 
 import authRouter from "./routes/auth.route.js";
 import groupRoutes from "./routes/group.route.js";
@@ -34,9 +33,6 @@ app.use(helmet());
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
-
-// Sanitize MongoDB data (prevent NoSQL injection)
-// Removed express-mongo-sanitize as it's incompatible with Express 5's getter-only req.query
 
 // Rate Limiting
 const limiter = rateLimit({
