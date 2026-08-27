@@ -262,7 +262,18 @@ export const deleteSettlement = async (req, res, next) => {
             );
         }
         
-        // 4. Delete settlement
+        // 4. Only sender or receiver can delete the settlement
+        if (
+            settlement.from._id.toString() !== req.user._id.toString() &&
+            settlement.to._id.toString() !== req.user._id.toString()
+        ) {
+            throw new AppError(
+                "Only the sender or receiver can delete this settlement",
+                403
+            );
+        }
+        
+        // 5. Delete settlement
         await Settlement.findByIdAndDelete(settlementId);
 
         // 5. Return success
