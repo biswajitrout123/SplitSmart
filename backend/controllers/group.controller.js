@@ -5,7 +5,7 @@ import Settlement from "../models/settlement.model.js";
 import AppError from "../utils/AppError.js";
 import { calculateGroupBalances } from "../utils/groupBalance.util.js";
 
-export const createGroup = async (req, res) => {
+export const createGroup = async (req, res, next) => {
     try {
         const { name, description } = req.body;
 
@@ -32,17 +32,13 @@ export const createGroup = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 
-export const getMyGroups = async (req, res) => {
+export const getMyGroups = async (req, res, next) => {
     try {
 
         const groups = await Group.find({
@@ -57,18 +53,14 @@ export const getMyGroups = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 
 
-export const getGroupById = async (req, res) => {
+export const getGroupById = async (req, res, next) => {
     try {
 
         // 1. Get group ID from URL 
@@ -103,17 +95,13 @@ export const getGroupById = async (req, res) => {
 
 
     } catch (err) {
-        console.log(err);
-        res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
 
 
-export const addMember = async (req, res) => {
+export const addMember = async (req, res, next) => {
     try {
         const { groupId } = req.params;
         const { email, userId } = req.body;
@@ -200,12 +188,7 @@ export const addMember = async (req, res) => {
         });
 
     } catch (err) {
-        console.error("ADD MEMBER ERROR:", err);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };
 
