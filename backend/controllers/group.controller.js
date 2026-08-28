@@ -10,12 +10,7 @@ export const createGroup = async (req, res, next) => {
         const { name, description } = req.body;
 
         // 1. Validate group name
-        if (!name) {
-            return res.status(400).json({
-                success: false,
-                message: "Please provide a group name"
-            });
-        }
+        // Basic validation is handled by createGroupValidator middleware
 
         // 2. Create group
         const group = await Group.create({
@@ -107,12 +102,7 @@ export const addMember = async (req, res, next) => {
         const { email, userId } = req.body;
 
         // 1. Validate that email or userId was provided
-        if (!email && !userId) {
-            return res.status(400).json({
-                success: false,
-                message: "Please provide a user email or user ID"
-            });
-        }
+        // Handled by addMemberValidator middleware
 
         // 2. Find group
         const group = await Group.findById(groupId);

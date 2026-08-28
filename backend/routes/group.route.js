@@ -3,15 +3,17 @@ import express from 'express'
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { addMember, createGroup, getGroupById, getGroupDashboard, getMyGroups } from '../controllers/group.controller.js';
 import { sendDebtReminder } from '../controllers/notification.controller.js';
+import { validateRequest } from '../middleware/validation.middleware.js';
+import { createGroupValidator, addMemberValidator, sendDebtReminderValidator } from '../utils/validators.js';
 
 const router = express.Router();
 
-router.post("/", authMiddleware, createGroup);
+router.post("/", authMiddleware, createGroupValidator, validateRequest, createGroup);
 router.get('/', authMiddleware, getMyGroups);
 router.get('/:groupId', authMiddleware, getGroupById);
-router.post('/:groupId/members', authMiddleware, addMember);
+router.post('/:groupId/members', authMiddleware, addMemberValidator, validateRequest, addMember);
 
 router.get('/:groupId/dashboard', authMiddleware, getGroupDashboard);
-router.post('/:groupId/remind', authMiddleware, sendDebtReminder);
+router.post('/:groupId/remind', authMiddleware, sendDebtReminderValidator, validateRequest, sendDebtReminder);
 
 export default router;

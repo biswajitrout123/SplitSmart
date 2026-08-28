@@ -8,19 +8,7 @@ export const registerUser = async (req, res) => {
         const { name, email, password } = req.body;
 
         // 1. Validate Data
-        if (!name || !email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please provide all required fields'
-            });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: 'Password must be at least 6 characters'
-            });
-        }
+        // Basic validation is handled by registerValidator middleware
 
         // 2. Check if Email Exists
         const existingUser = await User.findOne({ email });
@@ -69,12 +57,7 @@ export const loginUser = async (req, res) => {
         const { email, password } = req.body;
 
         // 1. Validate Data
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please provide both email and password'
-            });
-        }
+        // Basic validation is handled by loginValidator middleware
 
         // 2. Find User (and select the password field, which might be hidden by default in some setups)
         const user = await User.findOne({ email });

@@ -10,36 +10,38 @@ const __dirname = path.dirname(__filename);
 // Load env vars
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
+let connectionCount = 0;
+
 export const setupTestDB = () => {
     beforeAll(async () => {
-        const uri = process.env.MONGO_URI;
-        if (!uri) {
-            throw new Error('MONGO_URI must be defined in .env');
+        connectionCount++;
+        if (mongoose.connection.readyState === 0) {
+            const uri = process.env.MONGO_URI;
+            if (!uri) throw new Error('MONGO_URI must be defined in .env');
+            const uniqueId = Math.random().toString(36).substring(7);
+            const testUri = uri.includes('?') ? uri.replace('?', '-test-' + uniqueId + '?') : uri + '-test-' + uniqueId;
+            await mongoose.connect(testUri);
         }
-        
-        // Ensure we are connecting to a test database so we don't drop real data
-        const uniqueId = Math.random().toString(36).substring(7);
-        const testUri = uri.includes('?') 
-            ? uri.replace('?', `-test-${uniqueId}?`) 
-            : `${uri}-test-${uniqueId}`;
-        
-        await mongoose.connect(testUri);
     });
 
     afterAll(async () => {
-        // Drop the test database and close connection
-        if (mongoose.connection.db) {
-            await mongoose.connection.db.dropDatabase();
+        connectionCount--;
+        if (connectionCount <= 0) {
+            if (mongoose.connection.db) {
+                await mongoose.connection.db.dropDatabase();
+            }
+            await mongoose.disconnect();
+            connectionCount = 0;
         }
-        await mongoose.disconnect();
     });
 
     afterEach(async () => {
-        // Clear all collections after each test to ensure isolation
-        const collections = mongoose.connection.collections;
-        for (const key in collections) {
-            const collection = collections[key];
-            await collection.deleteMany();
+        if (mongoose.connection.readyState !== 0) {
+            const collections = mongoose.connection.collections;
+            for (const key in collections) {
+                const collection = collections[key];
+                await collection.deleteMany();
+            }
         }
     });
 };
