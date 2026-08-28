@@ -11,6 +11,9 @@ import settlementRoutes from "./routes/settlement.route.js";
 import activityRoutes from "./routes/activity.route.js";
 import notificationRoutes from "./routes/notification.route.js";
 
+import swaggerUi from "swagger-ui-express";
+import { swaggerDocument } from "./docs/swagger.js";
+
 import { errorMiddleware } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -59,6 +62,11 @@ app.use("/api/groups", expenseRoutes);
 app.use("/api/groups", settlementRoutes);
 app.use("/api/groups", activityRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// ================================
+// API DOCUMENTATION
+// ================================
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // ================================
 // HEALTH CHECK
