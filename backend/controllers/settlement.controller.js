@@ -16,20 +16,7 @@ export const createSettlement = async (req, res, next) => {
         const { to, amount } = req.body;
 
         // 3. Validate data
-        if (!to || amount === undefined) {
-            throw new AppError(
-                "Recipient and amount are required",
-                400
-            );
-        }
-
-        // 4. Validate amount
-        if (amount <= 0) {
-            throw new AppError(
-                "Amount must be greater than 0",
-                400
-            );
-        }
+        // Basic validation is handled by createSettlementValidator middleware
 
         // 5. Find group
         const group = await Group.findById(groupId);

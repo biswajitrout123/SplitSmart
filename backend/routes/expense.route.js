@@ -1,13 +1,15 @@
 import express from "express";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { validateRequest } from '../middleware/validation.middleware.js';
+import { createExpenseValidator, updateExpenseValidator } from '../utils/validators.js';
 
 import { createExpense, getGroupExpenses, getExpenseById, deleteExpense, updateExpense, getGroupBalances, getSimplifiedSettlements, getExpenseAnalytics, getMonthlyExpenseTrends } from "../controllers/expense.controller.js";
 
 const router = express.Router();
 
 // CREATE EXPENSES
-router.post("/:groupId/expenses", authMiddleware, createExpense);
+router.post("/:groupId/expenses", authMiddleware, createExpenseValidator, validateRequest, createExpense);
 
 // GET ALL GROUP EXPENSES
 router.get("/:groupId/expenses", authMiddleware, getGroupExpenses);
@@ -25,7 +27,7 @@ router.get('/:groupId/expenses/:expenseId', authMiddleware, getExpenseById);
 router.delete('/:groupId/expenses/:expenseId', authMiddleware, deleteExpense);
 
 // UPDATE EXPENSE
-router.patch('/:groupId/expenses/:expenseId', authMiddleware, updateExpense);
+router.patch('/:groupId/expenses/:expenseId', authMiddleware, updateExpenseValidator, validateRequest, updateExpense);
 
 
 // GET GROUP BALANCES

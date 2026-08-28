@@ -23,61 +23,11 @@ export const createExpense = async (req, res, next) => {
         // ---------------------------------------------
         // BASIC VALIDATION
         // ---------------------------------------------
-        if (!description?.trim()) {
-            throw new AppError(
-                "Please provide expense description",
-                400
-            );
-        }
+        // Description, amount, category, customCategory, splitType, splits 
+        // are already validated by createExpenseValidator middleware.
 
-        const numericAmount = Number(amount);
+        const numericAmount = amount; // Already converted to float by validator
 
-        if (
-            amount === undefined ||
-            amount === null ||
-            Number.isNaN(numericAmount) ||
-            numericAmount <= 0
-        ) {
-            throw new AppError(
-                "Expense amount must be greater than 0",
-                400
-            );
-        }
-        
-        if (category === "Custom") {
-            if (!customCategory || !customCategory.trim()) {
-                throw new AppError(
-                    "Please provide a custom category name",
-                    400
-                );
-            }
-        }
-
-        // ---------------------------------------------
-        // VALIDATE SPLIT TYPE
-        // ---------------------------------------------
-        const allowedSplitTypes = [
-            "equal",
-            "exact",
-            "percentage"
-        ];
-
-        if (!allowedSplitTypes.includes(splitType)) {
-            throw new AppError(
-                "Invalid split type",
-                400
-            );
-        }
-
-        // ---------------------------------------------
-        // VALIDATE SPLITS ARRAY
-        // ---------------------------------------------
-        if (!Array.isArray(splits)) {
-            throw new AppError(
-                "Splits must be an array",
-                400
-            );
-        }
 
         // ---------------------------------------------
         // FIND GROUP
@@ -314,13 +264,8 @@ export const updateExpense = async (req, res, next) => {
         }
 
         // 7. Validate amount if provided
-        const numericAmount = amount !== undefined ? Number(amount) : undefined;
-        if (numericAmount !== undefined && (Number.isNaN(numericAmount) || numericAmount <= 0)) {
-            throw new AppError(
-                "Amount must be greater than 0",
-                400
-            );
-        }
+        // Handled by updateExpenseValidator middleware (already converted to float if present)
+        const numericAmount = amount;
 
         // 8. Update fields
         if (description !== undefined) {
@@ -337,9 +282,7 @@ export const updateExpense = async (req, res, next) => {
         
         if (expense.category === "Custom") {
             const finalCustomCategory = customCategory !== undefined ? customCategory : expense.customCategory;
-            if (!finalCustomCategory || !finalCustomCategory.trim()) {
-                throw new AppError("Please provide a custom category name", 400);
-            }
+            // customCategory validation is handled by updateExpenseValidator
             expense.customCategory = finalCustomCategory.trim();
         } else {
             expense.customCategory = undefined;
@@ -347,10 +290,6 @@ export const updateExpense = async (req, res, next) => {
 
         
         if (splitType !== undefined) {
-            const allowedSplitTypes = ["equal", "exact", "percentage"];
-            if (!allowedSplitTypes.includes(splitType)) {
-                throw new AppError("Invalid split type", 400);
-            }
             expense.splitType = splitType;
         }
         
@@ -358,9 +297,6 @@ export const updateExpense = async (req, res, next) => {
         // to ensure it stays valid.
         if (splits !== undefined || splitType !== undefined || numericAmount !== undefined) {
             const currentSplits = splits !== undefined ? splits : expense.splits;
-            if (!Array.isArray(currentSplits)) {
-                throw new AppError("Splits must be an array", 400);
-            }
             
             const calculateAmount = numericAmount !== undefined ? numericAmount : expense.amount;
             const calculateSplitType = splitType !== undefined ? splitType : expense.splitType;

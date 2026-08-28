@@ -79,9 +79,7 @@ export const sendDebtReminder = async (req, res, next) => {
         const { groupId } = req.params;
         const { debtorId } = req.body; // the person who owes money
 
-        if (!debtorId) {
-            throw new AppError("Debtor ID is required", 400);
-        }
+        // Basic validation is handled by sendDebtReminderValidator middleware
 
         if (debtorId.toString() === req.user._id.toString()) {
             throw new AppError("You cannot send a reminder to yourself", 400);
