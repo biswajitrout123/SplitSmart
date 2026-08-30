@@ -91,6 +91,9 @@ const expenseSchema = new mongoose.Schema(
     }
 );
 
+// Compound index for getting group expenses sorted by newest
+expenseSchema.index({ group: 1, createdAt: -1 });
+
 const Expense = mongoose.model(
     "Expense",
     expenseSchema

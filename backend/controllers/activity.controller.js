@@ -8,8 +8,11 @@ import AppError from "../utils/AppError.js";
 export const getGroupActivity = async (req, res, next) => {
     try {
         const { groupId } = req.params;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
+        let page = parseInt(req.query.page, 10);
+        if (isNaN(page) || page < 1) page = 1;
+
+        let limit = parseInt(req.query.limit, 10);
+        if (isNaN(limit) || limit < 1) limit = 50;
 
         // 1. Verify group and membership
         const group = await Group.findById(groupId);
@@ -89,14 +92,18 @@ export const getGroupActivity = async (req, res, next) => {
         allFeed.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         // 6. Paginate Results
-        const startIndex = (page - 1) * limit;
-        const endIndex = page * limit;
+        const safeLimit = Math.min(limit, 100);
+        const startIndex = (page - 1) * safeLimit;
+        const endIndex = page * safeLimit;
         const paginatedFeed = allFeed.slice(startIndex, endIndex);
 
         return res.status(200).json({
             success: true,
             count: paginatedFeed.length,
             total: allFeed.length,
+            page,
+            limit: safeLimit,
+            totalPages: Math.ceil(allFeed.length / safeLimit),
             hasMore: endIndex < allFeed.length,
             activities: paginatedFeed
         });

@@ -146,17 +146,36 @@ export const getGroupExpenses = async (req, res, next) => {
             );
         }
 
-        // 4. Get all expenses of this group
+        // 4. Pagination parameters
+        let page = parseInt(req.query.page, 10);
+        if (isNaN(page) || page < 1) page = 1;
+        
+        let limit = parseInt(req.query.limit, 10);
+        if (isNaN(limit) || limit < 1) limit = 20;
+        
+        const safeLimit = Math.min(limit, 100); // hard cap
+        const skip = (page - 1) * safeLimit;
+
+        // 5. Get all expenses of this group
         const expenses = await Expense.find({
             group: groupId
         })
             .populate("paidBy", "name email")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(safeLimit)
+            .lean(); // Use lean for performance since documents are strictly for reading
 
-        // 5. Return expenses
+        const total = await Expense.countDocuments({ group: groupId });
+
+        // 6. Return expenses
         return res.status(200).json({
             success: true,
             count: expenses.length,
+            total,
+            page,
+            limit: safeLimit,
+            totalPages: Math.ceil(total / safeLimit),
             expenses
         });
 

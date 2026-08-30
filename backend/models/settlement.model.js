@@ -31,6 +31,9 @@ const settlementSchema = new mongoose.Schema(
     }
 );
 
+// Compound index for finding settlements in a group
+settlementSchema.index({ group: 1, createdAt: -1 });
+
 const Settlement = mongoose.model("Settlement", settlementSchema);
 
 export default Settlement;
