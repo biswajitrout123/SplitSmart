@@ -15,12 +15,16 @@ import swaggerUi from "swagger-ui-express";
 import { swaggerDocument } from "./docs/swagger.js";
 
 import { errorMiddleware } from "./middleware/error.middleware.js";
+import { requestLogger } from "./middleware/logger.middleware.js";
+import AppError from "./utils/AppError.js";
 
 const app = express();
 
 // ================================
 // MIDDLEWARE
 // ================================
+
+app.use(requestLogger);
 
 app.use(
     cors({
@@ -77,6 +81,11 @@ app.get("/api/health", (req, res) => {
         success: true,
         message: "SplitSmart API is running"
     });
+});
+
+// Handle unknown API routes
+app.use((req, res, next) => {
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
 // ================================

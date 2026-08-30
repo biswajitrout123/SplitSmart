@@ -30,21 +30,11 @@ export const authMiddleware = async (req, res, next) => {
         next();
 
     } catch (err) {
-        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid or expired token"
-            });
-        }
-        console.error("Auth middleware error:", err);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 }
 
-export const getMe = async (req, res) => {
+export const getMe = async (req, res, next) => {
     try {
         return res.status(200).json({
             success: true,
@@ -57,10 +47,6 @@ export const getMe = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
 };

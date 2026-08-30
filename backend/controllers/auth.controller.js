@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 
-export const registerUser = async (req, res) => {
+export const registerUser = async (req, res, next) => {
     try {
         const { name, email, password } = req.body;
 
@@ -42,17 +42,13 @@ export const registerUser = async (req, res) => {
         });
     }
     catch (err) {
-        console.log(err);
-        res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        })
+        next(err);
     }
 }
 
 
 
-export const loginUser = async (req, res) => {
+export const loginUser = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
@@ -106,17 +102,13 @@ export const loginUser = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-        res.status(500).json({
-            success: false,
-            message: 'Server error during login'
-        });
+        next(err);
     }
 }
 
 
 
-export const logoutUser = async (req, res) => {
+export const logoutUser = async (req, res, next) => {
     try {
         res.clearCookie("token", {
             httpOnly: true,
@@ -130,11 +122,6 @@ export const logoutUser = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error"
-        });
+        next(err);
     }
-
 }
