@@ -4,6 +4,17 @@
 
 SplitSmart is a full-stack MERN application designed to help users track shared expenses, calculate exact balances, and settle debts seamlessly. It eliminates the manual math of group trips, shared apartments, and team events by instantly computing who owes whom and maintaining a unified activity feed.
 
+## 🚀 Live Demo
+
+**Frontend (Vercel):**
+https://split-smart-coral.vercel.app
+
+**Backend API (Render):**
+https://splitsmart-64jx.onrender.com
+
+**API Health Check:**
+https://splitsmart-64jx.onrender.com/api/health
+
 ## Table of Contents
 1. [Project Overview](#project-overview)
 2. [Technology Stack](#technology-stack)
