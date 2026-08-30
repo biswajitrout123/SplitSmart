@@ -30,6 +30,10 @@ export const authMiddleware = async (req, res, next) => {
         next();
 
     } catch (err) {
+        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError' || err.name === 'SyntaxError') {
+             err.name = 'JsonWebTokenError'; // Normalizes for error middleware
+             return next(err);
+        }
         next(err);
     }
 }
