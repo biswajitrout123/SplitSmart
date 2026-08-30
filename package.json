@@ -1,0 +1,32 @@
+{
+  "name": "splitsmart-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:all": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.1",
+    "concurrently": "^8.2.2"
+  },
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/biswajitrout123/SplitSmart.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/biswajitrout123/SplitSmart/issues"
+  },
+  "homepage": "https://github.com/biswajitrout123/SplitSmart#readme"
+}

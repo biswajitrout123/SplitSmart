@@ -87,6 +87,7 @@ const NotificationsDropdown = () => {
         <div className="relative" ref={dropdownRef}>
             <button
                 type="button"
+                data-testid="notification-button"
                 onClick={toggleDropdown}
                 className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
             >
