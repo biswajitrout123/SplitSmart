@@ -1,9 +1,7 @@
-import dotenv from "dotenv";
+import "dotenv/config";
 import app from "./app.js";
 import connectDB from "./config/db.js";
 import { logger } from "./utils/logger.js";
-
-dotenv.config();
 
 process.on("uncaughtException", (err) => {
     logger.error("UNCAUGHT EXCEPTION! 💥 Shutting down...", {}, err);
@@ -12,8 +10,9 @@ process.on("uncaughtException", (err) => {
 
 connectDB();
 
-const server = app.listen(3000, () => {
-    logger.info("Server is running on port 3000");
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, "0.0.0.0", () => {
+    logger.info(`Server is running on port ${PORT}`);
 });
 
 process.on("unhandledRejection", (err) => {

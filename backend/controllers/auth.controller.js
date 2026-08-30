@@ -86,7 +86,7 @@ export const loginUser = async (req, res, next) => {
             expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days in milliseconds
             httpOnly: true, // Cannot be accessed by frontend JS (mitigates XSS)
             secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
-            sameSite: 'strict' // Helps mitigate CSRF
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict"
         };
 
         // 6. Send Response with Cookie
@@ -113,7 +113,7 @@ export const logoutUser = async (req, res, next) => {
         res.clearCookie("token", {
             httpOnly: true,
             secure: process.env.NODE_ENV == "production",
-            sameSite: "strict"
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict"
         });
 
         return res.status(200).json({
