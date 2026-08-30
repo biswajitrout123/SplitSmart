@@ -1,257 +1,359 @@
 # SplitSmart
 
-> **Smart expense splitting and settlement management for groups.**
+SplitSmart is a MERN-stack web application designed to help users track shared expenses, calculate exact group balances, and simplify debt settlements. It eliminates the manual math of trips and shared living arrangements by providing an automated ledger and activity feed. The project focuses heavily on implementing robust, production-quality engineering practices including centralized validation, safe error handling, API performance optimizations, and a complete automated CI testing pipeline.
 
-SplitSmart is a full-stack MERN application designed to help users track shared expenses, calculate exact balances, and settle debts seamlessly. It eliminates the manual math of group trips, shared apartments, and team events by instantly computing who owes whom and maintaining a unified activity feed.
+## Features
 
-## Table of Contents
-1. [Project Overview](#project-overview)
-2. [Technology Stack](#technology-stack)
-3. [System Architecture](#system-architecture)
-4. [Core Workflows](#core-workflows)
-5. [Technical Implementation](#technical-implementation)
-6. [Testing & CI/CD](#testing--cicd)
-7. [Developer Workflow & Docs](#developer-workflow--docs)
-8. [Interview Preparation / Technical Q&A](#interview-preparation--technical-qa)
+- **Authentication**: Secure registration and login using bcrypt and JWT stored in an HttpOnly cookie.
+- **Group Management**: Users can create, view, and manage shared expense groups.
+- **Expense Management**: Add expenses with descriptions, amounts, and automatic member assignment.
+- **Dynamic Splitting**: Support for Equal, Exact, and Percentage-based expense splitting.
+- **Balances**: Automated calculation of exactly how much each user has paid and owes.
+- **Simplified Settlements**: Generates suggested debt settlements and allows users to record direct payments.
+- **Debt Reminders**: Functionality to trigger in-app reminders for unsettled debts.
+- **Notifications**: In-app notifications for new expenses and settlements with read/unread tracking.
+- **Activity Feed**: A paginated, database-driven feed showing the chronological history of group events.
 
----
+## Technology Stack
 
-## 1. Project Overview
+### Frontend
+- React 19 (via Vite)
+- TailwindCSS v4
+- React Router v7
+- Axios
 
-**What it is:** A web application for shared expense tracking.
-**Problem solved:** Manually calculating who paid for what and who owes whom after a trip or shared living arrangement is tedious and error-prone. SplitSmart automates this.
-**Main Users:** Roommates, travel groups, event organizers, and colleagues.
-**Key Features:**
-- Secure group creation and member management.
-- Dynamic expense splitting (Equal, Exact, Percentage).
-- Automated settlement calculation (debt mapping).
-- Real-time activity feeds and notification tracking.
-- Fully documented API with Swagger.
+### Backend
+- Node.js & Express 5
+- JSON Web Tokens (jsonwebtoken)
+- bcrypt
+- express-validator
 
----
+### Database
+- MongoDB
+- Mongoose ODM
 
-## 2. Technology Stack
+### Security
+- Helmet
+- express-rate-limit
+- CORS
+- Custom sensitive-data logging redaction
 
-**Frontend:**
-- **React 19 / Vite:** Lightning-fast UI rendering and build tooling.
-- **TailwindCSS v4:** Utility-first styling for a responsive, modern interface.
-- **React Router v7:** Client-side routing and protected navigation.
+### Testing
+- **Backend**: Vitest, Supertest
+- **Frontend**: Vitest, React Testing Library, jsdom
+- **E2E**: Playwright
 
-**Backend:**
-- **Node.js & Express 5:** Robust API server with modern async routing.
-- **MongoDB & Mongoose:** NoSQL document database optimized for flexible, relational-like queries.
-- **JWT (JSON Web Tokens):** Secure, stateless authentication via HTTP-only cookies.
-- **Swagger / OpenAPI (`swagger-jsdoc`, `swagger-ui-express`):** Interactive API documentation.
+### CI/CD
+- GitHub Actions
 
-**Testing & Quality Assurance:**
-- **Vitest & Supertest:** Backend unit and integration testing.
-- **Vitest & React Testing Library (JSDOM):** Frontend component and hook testing.
-- **Playwright:** End-to-end (E2E) browser testing for critical user journeys.
-- **GitHub Actions:** CI/CD pipeline enforcing tests, linting, and builds on every push/PR.
+### API Documentation
+- Swagger UI (swagger-ui-express)
+- Static OpenAPI Object Specification
 
----
+## Architecture
 
-## 3. System Architecture
-
-SplitSmart follows a traditional client-server architecture with a strict separation of concerns in the backend.
+SplitSmart uses a standard client-server architecture with strict separation of concerns in the Express backend, ensuring incoming requests are sanitized, validated, and logged before hitting business logic.
 
 ```mermaid
 graph TD
-    Client[Browser / React UI]
-    Proxy[API Gateway / Load Balancer]
+    Client[React Frontend]
     Server[Express API]
     DB[(MongoDB)]
     
-    Client -- "HTTPS / REST API" --> Proxy
-    Proxy -- "Forwards Request" --> Server
+    Client -- "Axios / REST API" --> Server
     
-    subgraph Backend Architecture
+    subgraph Backend Request Flow
         Server --> SecMW[Security/Auth Middleware]
         SecMW --> Logger[Request Logger]
-        Logger --> Validator[Express Validator]
-        Validator --> Controllers[Controllers]
-        Controllers --> Services[Business Logic]
-        Services -- "Mongoose ODM (.lean())" --> DB
-        Controllers -- "next(err)" --> ErrorMW[Global Error Middleware]
-        ErrorMW -- "Formats Error" --> Client
+        Logger --> Validator[express-validator]
+        Validator --> Routes[Express Routes]
+        Routes --> Controllers[Controllers]
+        Controllers --> Services[Services & Utilities]
+        Services -- "Mongoose (.lean())" --> DB
+        Controllers -- "next(err)" --> ErrorMW[Central Error Middleware]
+        ErrorMW -- "Formats & Masks" --> Client
     end
     
     Controllers -- "JSON Response" --> Client
 ```
 
-### Complete Request/Response Flow:
-1. **Browser**: User triggers an action (e.g., clicks "Add Expense").
-2. **React Services**: Frontend `axios` service attaches the request payload. Credentials (HTTP-only cookies) are automatically sent.
-3. **Express API**: The router intercepts the endpoint.
-4. **Middleware**: Validates auth tokens, applies rate limiting, and sanitizes input (e.g., `express-validator`).
-5. **Controllers**: Extracts validated request data and calls the appropriate service.
-6. **Services/Utilities**: Contains business logic (like calculating group balances).
-7. **Mongoose/MongoDB**: Executes optimized queries (using indexes and `.lean()` for read operations).
-8. **Response**: JSON payloads are returned directly or caught by the Centralized Error Middleware if a crash occurs.
-9. **React UI**: Context state updates and UI re-renders.
+## Authentication Flow
 
----
+Authentication is stateless and relies exclusively on JSON Web Tokens stored securely in the browser.
 
-## 4. Core Workflows
-
-### Authentication Flow
-- **Registration**: Passwords are cryptographically hashed using `bcrypt` before database insertion.
-- **Login**: Verifies credentials and generates a JWT.
-- **HTTP-Only JWT Cookie**: The token is sent back as a `Secure`, `HttpOnly`, `SameSite=Strict` cookie. This completely mitigates XSS (Cross-Site Scripting) attacks as JavaScript cannot access the token.
-- **Auth Middleware**: Intercepts requests to protected routes, parses the cookie, verifies the JWT signature, and attaches `req.user`.
-- **Logout**: Clears the cookie on the client and server.
+1. **Registration**: User submits credentials; backend hashes the password using `bcrypt` (salt rounds = 10) and saves the user.
+2. **Login**: User submits credentials; backend compares the hashed password.
+3. **JWT Creation**: Upon success, a JWT containing the user's `_id` is signed using a secret key.
+4. **HTTP-Only Cookie**: The JWT is returned via a `Set-Cookie` header marked as `HttpOnly`, `Secure`, and `SameSite: strict`.
+5. **Auth Middleware**: Protected routes pass through `protect` middleware, which extracts the cookie, verifies the JWT signature, and attaches the user document to `req.user`.
+6. **Logout**: Overwrites the cookie with an immediate expiration date.
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant React UI
-    participant Auth Middleware
+    participant React Frontend
     participant Express Controller
     participant MongoDB
 
-    User->>React UI: Logs in
-    React UI->>Express Controller: POST /api/auth/login {email, password}
+    User->>React Frontend: Submit Login
+    React Frontend->>Express Controller: POST /api/auth/login {email, password}
     Express Controller->>MongoDB: User.findOne({ email })
-    MongoDB-->>Express Controller: Hash matched via bcrypt
-    Note over Express Controller: Generates JWT
-    Express Controller-->>React UI: Set-Cookie: token=... (HttpOnly)
+    MongoDB-->>Express Controller: Return User Hash
+    Note over Express Controller: bcrypt.compare()
+    Note over Express Controller: Generate JWT
+    Express Controller-->>React Frontend: 200 OK + Set-Cookie (HttpOnly JWT)
     
-    User->>React UI: Views Dashboard
-    React UI->>Auth Middleware: GET /api/groups (Cookie sent automatically)
-    Note over Auth Middleware: Verifies JWT
-    Auth Middleware->>Express Controller: next()
-    Express Controller-->>React UI: 200 OK
+    User->>React Frontend: Open Protected Route
+    React Frontend->>Express Controller: GET /api/groups (Cookie sent automatically)
+    Note over Express Controller: Auth Middleware verifies JWT
+    Express Controller-->>React Frontend: Protected JSON Data
 ```
 
-### Authorization Flow
-- **Group Membership**: Middleware validates that `req.user._id` exists in the `group.members` array before allowing expense or settlement creation.
-- **Resource Ownership**: Users can only edit/delete their own expenses, validated via `expense.paidBy.equals(req.user._id)`.
-- **Settlements**: Users can only record settlements involving themselves (either as sender or receiver).
-- **Notifications**: Users can only fetch and mark their own notifications as read.
+## Authorization
 
-### Expense Splitting Flow
-- **Equal Split**: Total amount is divided equally among selected members.
-- **Exact Split**: Users input exact amounts; the backend validates that the sum equals the total.
-- **Percentage Split**: Users input percentages; validated to sum to 100%.
-- **Settlement Calculation**: A running ledger algorithm computes the differential between `total paid` and `total owed` to generate suggested settlements.
+The application strictly controls resource access through custom middleware and controller logic:
+- **Authenticated Access**: Middleware (`protect`) rejects unauthenticated requests with a 401 status.
+- **Group Membership Checks**: Users cannot view, add expenses to, or settle debts in groups they do not belong to. Evaluated by checking if `req.user._id` exists in `group.members`.
+- **Expense Ownership**: Only the user who paid for an expense (`expense.paidBy`) can edit or delete it.
+- **Settlement Permissions**: A settlement can only be recorded or deleted if the requesting user is either the sender or receiver of the funds.
+- **Notification Ownership**: Users can only fetch or modify `isRead` statuses for their own `userId` notifications.
 
-### Settlement Flow
-- **Balances**: Aggregated via historical expense splits.
-- **Suggested Settlements**: Debt-simplification logic matches users with positive balances (creditors) to those with negative balances (debtors).
-- **Recording Settlements**: Persists a transaction linking `from` and `to` users, reducing their outstanding debt.
-- **Reminders**: Triggers an internal service to send an automated "Debt Reminder" notification to debtors.
+## Expense Splitting
 
-### Notification & Activity Flow
-- **Creation**: Actions (adding expenses, recording settlements) asynchronously trigger notification creation in the DB.
-- **Activity Feed**: Dynamically synthesized by combining raw `Expenses` and `Settlements` or reading from a dedicated `Activity` collection, sorted by date.
-- **Read/Unread**: Notifications have an `isRead` boolean flag that toggles upon user interaction.
+When an expense is created, the system calculates exact splits for the group members.
+
+- **Equal Split**: The total amount is divided exactly by the number of included members.
+- **Exact Split**: Users input explicit amounts. The backend validates that the sum of all individual splits exactly equals the total expense amount.
+- **Percentage Split**: Users input percentages. The backend validates that the sum equals 100% and calculates the absolute monetary value.
+- **Validation**: If numeric data is malformed or totals mismatch, the API immediately rejects the payload with a 400 Bad Request.
+- **Impact**: Split amounts define the exact financial liability recorded against each group member, directly driving balance calculations.
+
+## Balance & Settlement Logic
+
+Balances are dynamically aggregated rather than statically stored to prevent data corruption.
+
+- **Total Paid**: The sum of all expenses where the user is `paidBy`.
+- **Total Owed**: The sum of all splits assigned to the user across all expenses.
+- **Member Balance**: Calculated as `Total Paid - Total Owed + Received Settlements - Sent Settlements`.
+- **Debtors vs Creditors**: A negative balance indicates a debtor (they owe the group); a positive balance indicates a creditor (they are owed money).
+- **Simplified Settlement Calculation**: A greedy algorithm matches the highest debtors to the highest creditors, generating "Suggested Settlements" to minimize the total number of transactions required to resolve all debts.
+- **Settlement Recording**: When a user physically pays another user, they log a Settlement. This permanently adjusts their respective balances closer to zero.
+
+## Notifications & Activity
+
+The system maintains a chronological history of group events without relying on real-time push infrastructure.
+
+- **Activity Feed**: Driven by standard database queries. It synthesizes raw `Expenses` and `Settlements` into a unified, paginated, date-sorted array representing the group's history.
+- **Notifications Creation**: Controller logic creates notification documents in the database asynchronously when expenses or settlements are added.
+- **Audience**: Notifications are targeted. For example, recording a settlement alerts the receiver. 
+- **Debt Reminders**: A specific notification type generated when a user manually triggers a reminder on a debtor's balance.
+- **Read/Unread**: Notifications default to unread. The frontend allows users to mark them as read, updating the `isRead` boolean in the database.
+
+## Validation
+
+Input sanitation and validation are strictly enforced using `express-validator`:
+- **Route-Level Validation**: Middleware arrays intercept requests before the controller runs.
+- **Required Fields**: Ensures missing fields (like email or password) trigger immediate 400 errors.
+- **ObjectId Validation**: `isMongoId()` ensures URL parameters like `/:groupId` are valid MongoDB ObjectIds, preventing application crashes.
+- **Numeric Sanitization**: Floating-point numbers (amounts) are strictly validated as numerics and coerced safely.
+- **Cross-Field Validation**: Custom validation logic throws errors if exact splits don't match the total expense amount.
+- **Error Routing**: A `validate` middleware aggregates these errors and pipes them to the client before executing business logic.
+
+## Error Handling
+
+- **AppError**: A centralized class inheriting from Node's `Error`, allowing controllers to assign specific HTTP status codes (400, 401, 403, 404).
+- **Centralized Middleware**: Replaces repetitive `try/catch` block responses. Controllers invoke `next(err)`.
+- **Mongoose/JWT Mapping**: Native MongoDB errors (like 11000 Duplicate Key or CastError) and JSONWebTokenErrors are intercepted and mapped to user-friendly messages and 400/401 status codes.
+- **Production Error Masking**: If `NODE_ENV=production`, stack traces, file paths, and database schema internals are scrubbed. Internal 500 errors are masked as "Internal Server Error".
+- **404 Route Handling**: A generic catch-all `app.use` at the very bottom of the Express routing chain intercepts unmapped endpoints and formats a 404 response.
+
+## Security
+
+- **bcrypt**: Hashes passwords with salt rounds to prevent rainbow table attacks.
+- **JWT**: Statelessly authenticates users.
+- **HttpOnly Cookie**: Ensures JavaScript cannot access the JWT, preventing attackers from stealing tokens via XSS. (Note: The application still requires standard XSS hygiene for DOM injection).
+- **CORS**: Configured strictly to trust requests only from the deployed frontend origin.
+- **Helmet**: Injects security headers (HSTS, Content-Security-Policy, etc.) to harden the HTTP response.
+- **Rate Limiting**: `express-rate-limit` prevents brute-forcing login endpoints by throttling IP requests.
+- **Request Limits**: Enforces strict JSON payload size limits via Express to mitigate memory-exhaustion (DoS) attacks.
+- **Sensitive-Data Filtering**: A custom logging utility automatically redacts `password`, `token`, `cookie`, and `authorization` keys before writing to the console.
+
+## Performance
+
+- **MongoDB Indexes**: Compound indexes such as `{ group: 1, createdAt: -1 }` on Expenses and Settlements prevent full collection scans when aggregating balances or loading activity feeds.
+- **Pagination**: The `skip()` and `limit()` methods are utilized on large collection endpoints (Activity, Notifications, Expenses) to bound database queries and payload sizes.
+- **Query Limits**: Enforced `Math.min(limit, 100)` logic prevents a malicious user from requesting millions of records simultaneously.
+- **`.lean()` Queries**: Appended to Mongoose read queries. This bypasses the heavy CPU and memory overhead of instantiating rich Mongoose Document instances, returning highly performant plain JavaScript objects.
+
+## Testing Strategy
+
+The repository utilizes three isolated layers of automated testing:
+
+### Backend Tests
+- **Tools**: Vitest, Supertest, MongoDB Memory Server.
+- **Scope**: API endpoints, pagination math, boundary limits, and authorization rejection. Tests run against a transient in-memory database to prevent test pollution.
+- **Count**: 40 tests across 6 suites.
+
+### Frontend Tests
+- **Tools**: Vitest, React Testing Library, jsdom.
+- **Scope**: Component rendering, conditional logic (like rendering exact split fields), and mocked Axios context testing.
+- **Count**: 14 tests across 3 suites.
+
+### E2E Tests
+- **Tools**: Playwright.
+- **Scope**: Full browser-level verification of critical user journeys (Registration, Login, Creating a Group, Submitting an Expense, and opening Notification UI) utilizing a dedicated `splitsmart_e2e_test` database.
+- **Count**: 9 E2E tests.
+
+## CI/CD
+
+SplitSmart utilizes GitHub Actions to enforce code quality automatically (`.github/workflows/ci.yml`).
+
+- **Trigger**: Runs on `push` and `pull_request` to the `main` branch.
+- **Services**: Spins up an Ubuntu runner and a native MongoDB v6 service.
+- **Execution**:
+  1. Installs backend dependencies (`npm ci`) and runs backend tests.
+  2. Installs frontend dependencies.
+  3. Runs frontend ESLint.
+  4. Runs frontend component tests.
+  5. Validates the frontend production build (`vite build`).
+  6. Installs Chromium and executes Playwright E2E tests.
+- **Result**: Acts as a Continuous Integration (CI) gate. If any check fails, the commit/PR is flagged as broken.
+
+## Swagger / OpenAPI
+
+- **Static OpenAPI Definition**: The API specification is stored in a structured JSON/JavaScript object in `backend/docs/swagger.js`.
+- **Swagger UI**: Rendered using `swagger-ui-express` at the `/api-docs` endpoint.
+- **Capabilities**: Developers can review required schemas and test endpoints natively in the browser. It includes documentation for `cookieAuth`, outlining exactly how the HTTP-only JWT acts as the bearer.
+
+## Project Structure
+
+```text
+SplitSmart/
+├── backend/
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routes/
+│   ├── services/
+│   ├── tests/
+│   ├── utils/
+│   └── docs/
+├── frontend/
+│   └── src/
+├── e2e/
+├── .github/
+│   └── workflows/
+└── package.json
+```
+
+## How to Run Locally
+
+### Requirements
+- Node.js (v18 or higher)
+- MongoDB running locally on port 27017
+
+### 1. Backend Setup
+```bash
+cd backend
+npm install
+npm run dev
+```
+*(Ensure a `.env` file exists in `backend/` containing `MONGO_URI`, `JWT_SECRET`, and `PORT`).*
+
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### 3. Run Automated Tests
+```bash
+# Backend Unit Tests
+cd backend && npm run test
+
+# Frontend Unit Tests
+cd frontend && npm run test
+
+# Playwright E2E Tests
+# Run from the root directory
+npm install
+npm run test:e2e
+```
+
+### 4. View Swagger Docs
+Once the backend is running, navigate to `http://localhost:5000/api-docs`.
+
+## API Overview
+
+| Method | Endpoint | Purpose | Authentication |
+|---|---|---|---|
+| POST | `/api/auth/register` | Create a new user | Public |
+| POST | `/api/auth/login` | Authenticate and receive cookie | Public |
+| GET | `/api/groups` | Fetch groups the user belongs to | Required |
+| POST | `/api/groups` | Create a new group | Required |
+| GET | `/api/groups/:groupId` | Get specific group details and balances | Required |
+| POST | `/api/groups/:groupId/expenses` | Add a new split expense | Required |
+| GET | `/api/groups/:groupId/expenses` | Paginated list of group expenses | Required |
+| POST | `/api/groups/:groupId/settlements` | Record a payment between members | Required |
+| GET | `/api/notifications` | Get paginated user notifications | Required |
+
+## Git Workflow
+
+The project utilizes a strict feature-branch workflow to maintain integrity:
+`main` → checkout `feature/branch-name` → Implementation → Local Testing → Commit → Push → Open Pull Request → CI Checks Pass → Merge → Delete feature branch → Update `main`.
+
+## Interview Value / Key Engineering Decisions
+
+- **JWT in HttpOnly Cookie**:
+  - **Problem**: Storing JWTs in `localStorage` leaves users highly vulnerable to XSS token theft.
+  - **Decision**: Send JWTs securely via HTTP response headers (`Set-Cookie: HttpOnly`).
+  - **Why**: The browser natively attaches it to requests; JavaScript cannot access it.
+  - **Result**: Drastically hardens authentication security.
+- **Pagination & Indexes**:
+  - **Problem**: Querying the full expense history for the Activity Feed caused massive memory spikes and slow N+1 style rendering.
+  - **Decision**: Added compound indexes (`{ group: 1, createdAt: -1 }`) and strict `skip()`/`limit()` bounding.
+  - **Why**: Keeps B-Tree lookups fast and prevents Node.js from pulling millions of documents into memory.
+  - **Result**: API responses optimized from seconds to milliseconds under heavy loads.
+- **Centralized Error Handling**:
+  - **Problem**: Controllers were bloated with `res.status(500)` calls and leaked database schemas on crashes.
+  - **Decision**: Implemented an `AppError` class and a final error middleware pipeline.
+  - **Why**: To separate operational errors from programming bugs and dynamically mask sensitive traces when `NODE_ENV=production`.
+  - **Result**: Cleaner codebase and secure, standardized JSON failure responses.
+
+## Common Interview Questions
+
+**1. Tell me about your project.**
+SplitSmart is a MERN-stack application that calculates and tracks shared group expenses. I built it focusing heavily on robust engineering practices, specifically implementing centralized validation, secure JWT HttpOnly authentication, MongoDB performance optimizations (like pagination and lean queries), and a complete automated CI testing pipeline using Vitest and Playwright.
+
+**2. Why did you choose MERN?**
+MERN provides a unified language (JavaScript) across the stack. MongoDB's flexible document model handles sparse polymorphic data perfectly (like storing disparate types of Activity events), and React is highly suited for updating dynamic balance ledger UI state.
+
+**3. Why HttpOnly cookies instead of localStorage?**
+To mitigate XSS. An attacker running malicious JavaScript on the client can easily steal a JWT from `localStorage`. HttpOnly ensures the browser completely hides the cookie from the JavaScript context.
+
+**4. How does expense splitting work?**
+The frontend gathers the total cost and split preferences (Equal, Exact, Percentage). The backend `express-validator` middleware intercepts the payload and computationally verifies that individual shares perfectly sum to the total amount before saving it to the database.
+
+**5. How are balances calculated?**
+The backend calculates balances on-the-fly rather than statically storing them to prevent ledger corruption. It aggregates every expense a user paid for, subtracts the precise share they owed across all group expenses, and factors in recorded settlements.
+
+**6. Why express-validator?**
+To strictly sanitize and validate incoming payloads at the routing layer before business logic executes. This protects the database from malformed data and guarantees controller logic won't crash from missing fields.
+
+**7. Why use `.lean()`?**
+By default, Mongoose hydrates results into heavy Document instances with built-in methods (like `.save()`). Since most API routes only need to read and return JSON, appending `.lean()` skips this instantiation, saving significant server CPU and memory.
+
+**8. What was the hardest bug you faced?**
+When implementing the global 404 handler, I initially used `app.all('*')`. Due to Express 5 / Path-to-RegExp v8 changes, this crashed the router with a "Missing parameter name" error. I debugged it and fixed the architecture by replacing it with a generic fallback `app.use()` placed precisely at the end of the middleware chain.
+
+## Future Improvements
+
+*Note: The following are planned enhancements and are not currently implemented in the repository.*
+- **Real-Time WebSockets**: Replacing the database-polling notification feed with Socket.IO for instant live updates.
+- **Cloud Deployment**: Containerizing the app via Docker and deploying via AWS ECS or Vercel/Render.
+- **Redis Caching**: Caching frequently accessed, read-heavy data like the group balance ledgers to further minimize MongoDB queries.
 
 ---
-
-## 5. Technical Implementation
-
-### API Validation
-- **`express-validator`**: Ensures incoming data shapes are strictly enforced before hitting controllers.
-- **ObjectId Validation**: Prevents MongoDB CastErrors by rejecting malformed IDs at the router level.
-- **Cross-Field Validation**: Ensures custom logic (e.g., exact split totals matching the expense amount).
-- **Sanitization/Coercion**: Trims strings, escapes HTML, and coerces stringified numbers to Floats.
-
-### Error Handling
-- **AppError Class**: A custom extension of the standard Error object handling operational errors (status codes 400, 401, 403, 404).
-- **Centralized Error Middleware**: All controllers pipe asynchronous errors via `next(err)` to a single handler.
-- **Production Masking**: In `NODE_ENV=production`, stack traces, internal MongoDB schemas, and raw JWT errors are scrubbed and replaced with generic "Internal Server Error" messages to prevent architecture leakage.
-- **404 Route Handling**: A catch-all wildcard at the bottom of the Express routing stack gracefully handles unknown endpoints.
-
-### Security
-- **Helmet**: Injects secure HTTP headers (HSTS, NoSniff, XSS-Protection).
-- **Rate Limiting**: Throttles brute-force login attempts and spam requests via `express-rate-limit`.
-- **Request Limits**: JSON payload limits prevent memory-exhaustion (DoS) attacks.
-- **Sensitive Data Masking**: A custom robust `logger.js` dynamically redacts `password`, `token`, and `cookie` strings before printing to `stdout`.
-- **CORS**: Strictly configured to trust only the designated frontend origin.
-
-### Performance Optimizations
-- **MongoDB Indexes**: Compound indexes on `{ group: 1, createdAt: -1 }` and `{ members: 1 }` prevent heavy collection scans on large datasets.
-- **Pagination**: The Activity Feed and Expenses list utilize `skip()` and `limit()`.
-- **Limit Enforcement**: A hard mathematical bound (`Math.min(limit, 100)`) secures the server against malicious query limits.
-- **Lean Queries**: Using Mongoose's `.lean()` on GET requests returns plain JavaScript objects, entirely bypassing the heavy CPU overhead of hydrating Mongoose Documents.
-
----
-
-## 6. Testing & CI/CD
-
-SplitSmart relies on a multi-tiered testing strategy:
-- **Backend (40 Tests)**: `Vitest` + `Supertest` + `MongoDB Memory Server`. Validates logic, pagination math, auth rejections, and DB constraints natively.
-- **Frontend (14 Tests)**: `Vitest` + `React Testing Library` + `JSDOM`. Mocks `axios` and `react-router` to verify component rendering and state transitions.
-- **E2E (9 Tests)**: `Playwright`. Boots a test DB, actual API, and real Chromium browser to verify end-to-end user journeys (auth, creating groups, submitting expenses).
-
-### Continuous Integration (CI)
-- **GitHub Actions**: Configured to run on every `push` and `pull_request` to `main`.
-- **Pipeline Flow**:
-  1. Installs backend/frontend dependencies (`npm ci`).
-  2. Runs backend unit tests.
-  3. Runs frontend linting.
-  4. Runs frontend unit tests.
-  5. Executes a production frontend build (`vite build`).
-  6. Downloads Chromium and runs full Playwright E2E tests.
-  *The branch is blocked from merging if any step fails.*
-
----
-
-## 7. Developer Workflow & Docs
-
-### Swagger / OpenAPI
-- **What it is**: An interactive documentation dashboard.
-- **Purpose**: Allows frontend engineers to visualize, test, and understand the backend API contracts natively.
-- **Usage**: Hosted at `/api-docs`. Includes `cookieAuth` configurations so developers can securely test protected routes directly from the browser.
-
-### Git Feature-Branch Workflow
-SplitSmart utilizes a strict feature-branch workflow to maintain main branch integrity:
-`main` -> `git checkout -b feature/name` -> Implementation -> Local Testing -> `git commit` -> `git push` -> **Open Pull Request (PR)** -> Code Review & CI Passes -> **Merge** -> Delete feature branch -> Update `main`.
-
----
-
-## 8. Interview Preparation / Technical Q&A
-
-<details>
-<summary><strong>Click to expand Interview Questions & Answers</strong></summary>
-
-### 1. Tell me about your project
-"SplitSmart is a MERN-stack application that automates the calculation and tracking of shared group expenses. It features secure JWT authentication, dynamic expense splitting algorithms, and a real-time activity feed. I heavily focused on production-readiness by implementing centralized error handling, robust MongoDB query optimization (indexes and pagination), and a complete automated CI/CD testing pipeline using Vitest and Playwright."
-
-### 2. Why the MERN stack?
-"I chose MERN because using JavaScript across the entire stack drastically reduces context switching. MongoDB’s document model maps perfectly to JSON-heavy APIs and provides the schema flexibility needed for complex, evolving models like 'Activities' and 'Expense Splits'. React provides a highly responsive UI necessary for dynamically calculating group balances."
-
-### 3. Why MongoDB?
-"Unlike relational databases, MongoDB handles sparse data and polymorphic structures effortlessly. For example, the `Activity` feed requires storing different metadata depending on whether the event is an 'expense added' or a 'settlement paid'. NoSQL makes this seamless."
-
-### 4. Why JWT in an HTTP-Only Cookie instead of LocalStorage?
-"Security. Storing tokens in `localStorage` exposes them to Cross-Site Scripting (XSS) attacks. By using `HttpOnly`, `Secure`, and `SameSite` cookies, the browser handles the token transparently, and malicious JavaScript cannot access it."
-
-### 5. How does authorization work?
-"Beyond basic authentication, I implemented ownership middleware. Before modifying an expense, the API queries the DB to ensure `expense.paidBy` matches `req.user._id`. For group-level actions, it checks if `req.user._id` exists in the `group.members` array."
-
-### 6. How do expense splitting and settlements work?
-"The backend calculates splits based on the chosen type (Equal, Exact). It then aggregates all group expenses to calculate a ledger of 'total paid' vs 'total owed' for each user. A debt-simplification algorithm generates 'suggested settlements' by matching the highest debtors to the highest creditors until balances neutralize."
-
-### 7. Why centralized error handling & validation middleware?
-"Without centralized error handling, controllers become bloated with repetitive `try/catch` logic and `res.status(500)`. My global middleware intercepts `next(err)`, normalizes Mongoose errors, and ensures stack traces are never leaked in production. Validation middleware (`express-validator`) ensures malicious or malformed data never even reaches my business logic."
-
-### 8. Why pagination, indexes, and `.lean()`?
-"Performance. Without pagination and an index on `{ group: 1, createdAt: -1 }`, the Activity Feed would trigger a full-collection scan in MongoDB, crashing the server as the app scales. Using Mongoose’s `.lean()` method bypasses the CPU-heavy process of instantiating Mongoose Documents, returning plain JSON and reducing response times from seconds to milliseconds."
-
-### 9. Why Swagger?
-"Swagger provides a living, interactive contract of my API. It drastically speeds up frontend integration because developers can see exactly what request bodies are expected and test endpoints without writing curl commands."
-
-### 10. Why automated testing (Vitest & Playwright) and CI?
-"Tests prevent regressions. Vitest handles isolated backend logic and frontend component rendering, while Playwright mimics a real user clicking through the browser (E2E). GitHub Actions (CI) acts as a gatekeeper, automatically running these tests on every push, ensuring broken code is never deployed to production."
-
-### 11. Biggest bugs encountered & how they were fixed?
-**Bug:** The Activity Feed endpoint caused memory spikes and timeouts.
-**Fix:** Discovered via logging that the API was pulling the entire history of expenses into Node memory. Fixed by implementing MongoDB `limit()`, `skip()`, indexing, and `.lean()`.
-**Bug:** Express wildcard routing (`app.all('*')`) was crashing with Path-to-RegExp v8 errors.
-**Fix:** Fixed by replacing it with a generic `app.use((req, res, next) => next(new AppError('404')))` at the very bottom of the middleware stack.
-
-</details>
-
----
-*End of Documentation*
+> **Interview Rule:** Everything described above reflects the current, verified repository implementation. No unverified technologies, infrastructures, or capabilities are claimed.
