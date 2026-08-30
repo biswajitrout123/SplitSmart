@@ -8,15 +8,22 @@ import Settlement from "../models/settlement.model.js";
 // GET USER NOTIFICATIONS
 export const getUserNotifications = async (req, res, next) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-        const skip = (page - 1) * limit;
+        let page = parseInt(req.query.page, 10);
+        if (isNaN(page) || page < 1) page = 1;
+
+        let limit = parseInt(req.query.limit, 10);
+        if (isNaN(limit) || limit < 1) limit = 20;
+
+        const safeLimit = Math.min(limit, 100);
+        const skip = (page - 1) * safeLimit;
 
         const notifications = await Notification.find({ user: req.user._id })
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(safeLimit)
+            .lean();
 
+        const total = await Notification.countDocuments({ user: req.user._id });
         const unreadCount = await Notification.countDocuments({
             user: req.user._id,
             isRead: false
@@ -24,8 +31,12 @@ export const getUserNotifications = async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            notifications,
-            unreadCount
+            total,
+            page,
+            limit: safeLimit,
+            totalPages: Math.ceil(total / safeLimit),
+            unreadCount,
+            notifications
         });
     } catch (err) {
         next(err);

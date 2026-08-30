@@ -31,5 +31,8 @@ const groupSchema = new mongoose.Schema(
     }
 );
 
+// Index to efficiently find groups a user belongs to
+groupSchema.index({ members: 1 });
+
 const Group = mongoose.model("Group", groupSchema);
 export default Group;
